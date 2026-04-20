@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe-hoot (실시간 퀴즈 게임)</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans antialiased selection:bg-blue-300">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- Firebase 초기화 ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDVk0xKbUykia3dpmP0PMMxoVExRgPOo-o",
+      authDomain: "test-dafb1.firebaseapp.com",
+      databaseURL: "https://test-dafb1.firebaseio.com",
+      projectId: "test-dafb1",
+      storageBucket: "test-dafb1.firebasestorage.app",
+      messagingSenderId: "842762232815",
+      appId: "1:842762232815:web:a4bcfac346712ef2250c1a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // --- 퀴즈 데이터 (수업 내용에 맞게 수정하세요!) ---
+    const QUIZ_DATA = [
+      {
+        question: "파이썬에서 화면에 텍스트를 출력할 때 사용하는 함수는?",
+        options: ["echo()", "print()", "show()", "console.log()"],
+        answerIndex: 1
+      },
+      {
+        question: "AI와 대화하며 코드를 작성하는 방식을 일컫는 말은?",
+        options: ["하드 코딩", "바이브 코딩", "페어 프로그래밍", "복붙 코딩"],
+        answerIndex: 1
+      },
+      {
+        question: "다음 중 웹 브라우저에서 동적인 기능을 담당하는 언어는?",
+        options: ["HTML", "CSS", "JavaScript", "Python"],
+        answerIndex: 2
+      }
+    ];
+
+    const TIME_LIMIT = 30; // 30초
+
+    function App() {
+      const [role, setRole] = useState(null); // 'admin' or 'student'
+
+      if (!role) {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-blue-600">
+            <h1 className="text-5xl font-black text-white mb-10 drop-shadow-lg">Vibe-hoot 🚀</h1>
+            <div className="space-y-4">
+              <button onClick={() => setRole('admin')} className="w-64 py-4 bg-white text-blue-600 font-bold text-xl rounded-lg shadow-xl hover:bg-gray-100 transition transform hover:scale-105">교실 만들기 (교사용)</button>
+              <br/>
+              <button onClick={() => setRole('student')} className="w-64 py-4 bg-yellow-400 text-yellow-900 font-bold text-xl rounded-lg shadow-xl hover:bg-yellow-300 transition transform hover:scale-105">교실 입장하기 (학생용)</button>
+            </div>
+          </div>
+        );
+      }
+
+      return role === 'admin' ? <AdminView /> : <StudentView />;
+    }
+
+    // ==========================================
+    // 👨‍🏫 교사용 관리자 화면
+    // ==========================================
+    function AdminView() {
+      const [roomCode, setRoomCode] = useState(null);
+      const [gameState, setGameState] = useState('waiting'); // waiting, question, result, final
+      const [players, setPlayers] = useState({});
+      const [currentQIndex, setCurrentQIndex] = useState(0);
+      const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+
+      // 교실 생성
+      useEffect(() => {
+        const code = Math.floor(1000 + Math.random() * 9000).toString(); // 4자리 코드
+        setRoomCode(code);
+        
+        const roomRef = db.ref(`rooms/${code}`);
+        roomRef.set({
+          state: 'waiting',
+          questionIndex: 0,
+          startTime: 0,
+        });
+
+        // 학생 입장 실시간 감지
+        db.ref(`rooms/${code}/players`).on('value', (snapshot) => {
+          setPlayers(snapshot.val() || {});
+        });
+
+        return () => db.ref(`rooms/${code}`).off();
+      }, []);
+
+      // 타이머 관리
+      useEffect(() => {
+        let timer;
+        if (gameState === 'question' && timeLeft > 0) {
+          timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+        } else if (gameState === 'question' && timeLeft === 0) {
+          handleTimeUp();
+        }
+        return () => clearInterval(timer);
+      }, [gameState, timeLeft]);
+
+      const startGame = () => {
+        setGameState('question');
+        setCurrentQIndex(0);
+        setTimeLeft(TIME_LIMIT);
+        db.ref(`rooms/${roomCode}`).update({ 
+          state: 'question', 
+          questionIndex: 0,
+          startTime: Date.now() 
+        });
+      };
+
+      const handleTimeUp = () => {
+        setGameState('result');
+        db.ref(`rooms/${roomCode}`).update({ state: 'result' });
+
+        // 점수 계산 (속도 비례)
+        const currentQ = QUIZ_DATA[currentQIndex];
+        const updates = {};
+        
+        Object.entries(players).forEach(([name, data]) => {
+          let scoreAdd = 0;
+          if (data.currentAnswer === currentQ.answerIndex && data.answerTime) {
+            // 빨리 풀수록 높은 점수 (최대 1000점)
+            const timeTaken = (data.answerTime - data.questionStartTime) / 1000;
+            scoreAdd = Math.max(0, Math.round((1 - timeTaken / TIME_LIMIT) * 1000));
+          }
+          updates[`rooms/${roomCode}/players/${name}/score`] = (data.score || 0) + scoreAdd;
+          updates[`rooms/${roomCode}/players/${name}/currentAnswer`] = null; // 초기화
+        });
+        
+        db.ref().update(updates);
+      };
+
+      const nextQuestion = () => {
+        if (currentQIndex + 1 < QUIZ_DATA.length) {
+          const nextIdx = currentQIndex + 1;
+          setCurrentQIndex(nextIdx);
+          setGameState('question');
+          setTimeLeft(TIME_LIMIT);
+          db.ref(`rooms/${roomCode}`).update({ 
+            state: 'question', 
+            questionIndex: nextIdx,
+            startTime: Date.now()
+          });
+        } else {
+          setGameState('final');
+          db.ref(`rooms/${roomCode}`).update({ state: 'final' });
+        }
+      };
+
+      if (!roomCode) return <div className="text-center mt-20 text-2xl">교실 생성 중...</div>;
+
+      return (
+        <div className="p-8 max-w-6xl mx-auto text-center">
+          {gameState === 'waiting' && (
+            <div>
+              <h2 className="text-4xl font-bold mb-4">화면의 코드를 입력해 입장하세요!</h2>
+              <div className="text-8xl font-black text-blue-600 bg-white inline-block py-4 px-12 rounded-xl shadow-xl tracking-widest">{roomCode}</div>
+              
+              <div className="mt-12">
+                <h3 className="text-2xl font-bold mb-4">현재 입장 인원: {Object.keys(players).length}명</h3>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {Object.keys(players).map(name => (
+                    <span key={name} className="px-6 py-2 bg-gray-200 rounded-full font-bold text-lg">{name}</span>
+                  ))}
+                </div>
+              </div>
+              
+              <button onClick={startGame} className="mt-12 px-12 py-4 bg-green-500 text-white font-bold text-2xl rounded-xl hover:bg-green-600 shadow-lg">게임 시작!</button>
+            </div>
+          )}
+
+          {gameState === 'question' && (
+            <div className="mt-10">
+              <div className="text-6xl font-black mb-8 text-red-500">{timeLeft}</div>
+              <h2 className="text-5xl font-bold bg-white p-10 rounded-xl shadow-md mb-10">{QUIZ_DATA[currentQIndex].question}</h2>
+              <div className="grid grid-cols-2 gap-6 h-64">
+                {['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-500'].map((color, idx) => (
+                  <div key={idx} className={`flex items-center justify-center text-4xl font-bold text-white rounded-xl shadow-md ${color}`}>
+                    {QUIZ_DATA[currentQIndex].options[idx]}
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleTimeUp} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">강제 스킵</button>
+            </div>
+          )}
+
+          {gameState === 'result' && (
+            <div className="mt-20">
+              <h2 className="text-5xl font-bold mb-10">정답: {QUIZ_DATA[currentQIndex].options[QUIZ_DATA[currentQIndex].answerIndex]}</h2>
+              <button onClick={nextQuestion} className="px-10 py-4 bg-blue-600 text-white font-bold text-2xl rounded-xl hover:bg-blue-700 shadow-lg">
+                {currentQIndex + 1 < QUIZ_DATA.length ? '다음 문제' : '최종 결과 보기'}
+              </button>
+            </div>
+          )}
+
+          {gameState === 'final' && (
+            <div className="mt-10">
+              <h2 className="text-6xl font-black text-yellow-500 mb-10 drop-shadow-md">🏆 최종 순위표 🏆</h2>
+              <div className="space-y-6 flex flex-col items-center">
+                {Object.entries(players)
+                  .sort((a, b) => b[1].score - a[1].score)
+                  .slice(0, 3)
+                  .map(([name, data], idx) => (
+                    <div key={name} className={`w-1/2 p-6 rounded-xl flex justify-between items-center text-3xl font-bold shadow-lg ${idx === 0 ? 'bg-yellow-300 text-yellow-900 scale-110' : idx === 1 ? 'bg-gray-300' : 'bg-orange-300'}`}>
+                      <span>{idx + 1}등 {name}</span>
+                      <span>{data.score || 0} pt</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 🧑‍🎓 학생용 리모컨 화면
+    // ==========================================
+    function StudentView() {
+      const [roomCode, setRoomCode] = useState('');
+      const [name, setName] = useState('');
+      const [joined, setJoined] = useState(false);
+      const [roomState, setRoomState] = useState('waiting'); // waiting, question, result, final
+      const [myScore, setMyScore] = useState(0);
+      const [hasAnswered, setHasAnswered] = useState(false);
+      const [startTime, setStartTime] = useState(0);
+
+      const joinRoom = () => {
+        if (!roomCode || !name) return alert('코드와 이름을 모두 입력해주세요!');
+        
+        const playerRef = db.ref(`rooms/${roomCode}/players/${name}`);
+        playerRef.set({ score: 0, currentAnswer: null }).then(() => {
+          setJoined(true);
+          
+          // 방 상태 동기화
+          db.ref(`rooms/${roomCode}`).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+              setRoomState(data.state);
+              setStartTime(data.startTime);
+              if (data.state === 'question') setHasAnswered(false);
+            }
+          });
+
+          // 내 점수 동기화
+          playerRef.on('value', (snap) => {
+            if(snap.val()) setMyScore(snap.val().score || 0);
+          });
+        });
+      };
+
+      const submitAnswer = (index) => {
+        if (hasAnswered) return;
+        setHasAnswered(true);
+        db.ref(`rooms/${roomCode}/players/${name}`).update({
+          currentAnswer: index,
+          answerTime: Date.now(),
+          questionStartTime: startTime
+        });
+      };
+
+      if (!joined) {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-400 p-6">
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+              <h2 className="text-3xl font-black text-center mb-6">게임 입장</h2>
+              <input 
+                type="text" placeholder="교실 코드 4자리" maxLength="4"
+                className="w-full text-center text-3xl font-bold p-4 mb-4 border-4 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
+                value={roomCode} onChange={e => setRoomCode(e.target.value)}
+              />
+              <input 
+                type="text" placeholder="자신의 이름 (학번+이름)" 
+                className="w-full text-center text-xl font-bold p-4 mb-6 border-4 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
+                value={name} onChange={e => setName(e.target.value)}
+              />
+              <button onClick={joinRoom} className="w-full bg-blue-600 text-white font-bold text-2xl py-4 rounded-xl hover:bg-blue-700 shadow-md">입장하기</button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col min-h-screen bg-gray-100 p-4">
+          <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm font-bold text-xl">
+            <span>👤 {name}</span>
+            <span>⭐ {myScore} pt</span>
+          </div>
+
+          {roomState === 'waiting' && (
+            <div className="flex-1 flex items-center justify-center text-3xl font-bold text-gray-500 text-center animate-pulse">
+              선생님이 게임을 시작할 때까지<br/>화면을 보며 대기하세요...
+            </div>
+          )}
+
+          {roomState === 'question' && (
+            <div className="flex-1 flex flex-col gap-4 h-full">
+              {hasAnswered ? (
+                <div className="flex-1 flex items-center justify-center text-3xl font-bold text-gray-500">
+                  제출 완료! 다른 친구들을 기다리는 중...
+                </div>
+              ) : (
+                ['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-500'].map((color, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => submitAnswer(idx)}
+                    className={`flex-1 rounded-xl shadow-lg active:scale-95 transition transform ${color}`}
+                  ></button>
+                ))
+              )}
+            </div>
+          )}
+
+          {roomState === 'result' && (
+            <div className="flex-1 flex items-center justify-center text-3xl font-bold text-center">
+              선생님 화면에서 정답을 확인하세요!
+            </div>
+          )}
+
+          {roomState === 'final' && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <h2 className="text-4xl font-black mb-4">게임 종료!</h2>
+              <p className="text-2xl font-bold">내 최종 점수: {myScore}점</p>
+              <p className="text-xl mt-4 text-gray-600">선생님 화면에서 최종 순위를 확인하세요.</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
