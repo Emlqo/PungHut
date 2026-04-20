@@ -40,7 +40,7 @@
     const ADMIN_PASSWORD = "vnddidwnd";
 
     function App() {
-      const [view, setView] = useState('home'); // home, admin_auth, admin_dash, game_host, student
+      const [view, setView] = useState('home'); 
       
       return (
         <div className="min-h-screen">
@@ -164,7 +164,7 @@
     // 4. 실제 게임 진행 (Host)
     function GameHostView() {
       const [roomCode, setRoomCode] = useState(null);
-      const [gameState, setGameState] = useState('waiting'); // waiting, question, result, final
+      const [gameState, setGameState] = useState('waiting');
       const [players, setPlayers] = useState({});
       const [quizPool, setQuizPool] = useState([]);
       const [currentIdx, setCurrentIdx] = useState(0);
@@ -174,7 +174,6 @@
         const code = Math.floor(1000 + Math.random() * 9000).toString();
         setRoomCode(code);
         
-        // 퀴즈 풀 가져오기
         db.ref('quiz_pool').once('value', snap => {
           const data = snap.val();
           if(data) {
@@ -210,7 +209,6 @@
         setGameState('result');
         db.ref(`rooms/${roomCode}`).update({ state: 'result' });
 
-        // 점수 합산 로직
         const currentQ = quizPool[currentIdx];
         const updates = {};
         Object.entries(players).forEach(([name, p]) => {
@@ -345,11 +343,14 @@
         );
       }
 
+      // 점수를 불러올 때 에러가 나지 않도록 전통적인 방어 코드(삼항 연산자) 사용
+      const currentScore = gameData.players && gameData.players[name] ? gameData.players[name].score : 0;
+
       return (
         <div className="p-4 min-h-screen flex flex-col bg-slate-100 text-center">
           <div className="bg-white p-4 rounded-2xl shadow-sm mb-6 flex justify-between font-bold text-lg">
             <span>👤 {name}</span>
-            <span>⭐ {(gameData.players && gameData.players[name]?.score) || 0}pt</span>
+            <span>⭐ {currentScore}pt</span>
           </div>
 
           {gameData.state === 'waiting' && <div className="flex-1 flex items-center justify-center text-2xl font-bold text-slate-400 animate-pulse">선생님이 게임을 시작할 때까지<br/>기다려주세요!</div>}
