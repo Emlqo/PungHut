@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vibe-hoot (실시간 퀴즈 게임)</title>
-  
+  <title>Vibe-hoot Pro | 실시간 퀴즈 관리 시스템</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Gothic:wght@400;700;800&display=swap');
+    body { font-family: 'Nanum+Gothic', sans-serif; }
+    .title-font { font-family: 'Black Han Sans', sans-serif; }
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans antialiased selection:bg-blue-300">
+<body class="bg-slate-50 text-slate-900">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -32,317 +33,341 @@
       appId: "1:842762232815:web:a4bcfac346712ef2250c1a"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.database();
-
-    // --- 퀴즈 데이터 (수업 내용에 맞게 수정하세요!) ---
-    const QUIZ_DATA = [
-      {
-        question: "파이썬에서 화면에 텍스트를 출력할 때 사용하는 함수는?",
-        options: ["echo()", "print()", "show()", "console.log()"],
-        answerIndex: 1
-      },
-      {
-        question: "AI와 대화하며 코드를 작성하는 방식을 일컫는 말은?",
-        options: ["하드 코딩", "바이브 코딩", "페어 프로그래밍", "복붙 코딩"],
-        answerIndex: 1
-      },
-      {
-        question: "다음 중 웹 브라우저에서 동적인 기능을 담당하는 언어는?",
-        options: ["HTML", "CSS", "JavaScript", "Python"],
-        answerIndex: 2
-      }
-    ];
-
-    const TIME_LIMIT = 30; // 30초
+    const ADMIN_PASSWORD = "vnddidwnd";
 
     function App() {
-      const [role, setRole] = useState(null); // 'admin' or 'student'
-
-      if (!role) {
-        return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-blue-600">
-            <h1 className="text-5xl font-black text-white mb-10 drop-shadow-lg">Vibe-hoot 🚀</h1>
-            <div className="space-y-4">
-              <button onClick={() => setRole('admin')} className="w-64 py-4 bg-white text-blue-600 font-bold text-xl rounded-lg shadow-xl hover:bg-gray-100 transition transform hover:scale-105">교실 만들기 (교사용)</button>
-              <br/>
-              <button onClick={() => setRole('student')} className="w-64 py-4 bg-yellow-400 text-yellow-900 font-bold text-xl rounded-lg shadow-xl hover:bg-yellow-300 transition transform hover:scale-105">교실 입장하기 (학생용)</button>
-            </div>
-          </div>
-        );
-      }
-
-      return role === 'admin' ? <AdminView /> : <StudentView />;
+      const [view, setView] = useState('home'); // home, admin_auth, admin_dash, game_host, student
+      
+      return (
+        <div className="min-h-screen">
+          {view === 'home' && <HomeView onSelect={setView} />}
+          {view === 'admin_auth' && <AdminAuth onSuccess={() => setView('admin_dash')} />}
+          {view === 'admin_dash' && <AdminDashboard onStartGame={() => setView('game_host')} />}
+          {view === 'game_host' && <GameHostView />}
+          {view === 'student' && <StudentView />}
+        </div>
+      );
     }
 
-    // ==========================================
-    // 👨‍🏫 교사용 관리자 화면
-    // ==========================================
-    function AdminView() {
+    // 1. 메인 화면
+    function HomeView({ onSelect }) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-700 text-white p-6">
+          <h1 className="text-6xl title-font mb-12 drop-shadow-2xl">Vibe-hoot! 🚀</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+            <button onClick={() => onSelect('student')} className="p-8 bg-amber-400 text-amber-900 rounded-3xl text-3xl font-black shadow-xl hover:scale-105 transition">학생 입장하기</button>
+            <button onClick={() => onSelect('admin_auth')} className="p-8 bg-white text-indigo-700 rounded-3xl text-3xl font-black shadow-xl hover:scale-105 transition">선생님 관리도구</button>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. 관리자 인증
+    function AdminAuth({ onSuccess }) {
+      const [pw, setPw] = useState('');
+      const handleLogin = () => {
+        if (pw === ADMIN_PASSWORD) onSuccess();
+        else alert('비밀번호가 틀렸습니다.');
+      };
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-800 p-6">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h2 className="text-2xl font-bold mb-6 text-center">관리자 로그인</h2>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleLogin()} className="w-full p-4 border-2 rounded-xl mb-4 text-center text-xl" placeholder="비밀번호 입력" />
+            <button onClick={handleLogin} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg">입장</button>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. 관리자 대시보드 (퀴즈 생성/관리)
+    function AdminDashboard({ onStartGame }) {
+      const [quizzes, setQuizzes] = useState([]);
+      const [newQ, setNewQ] = useState({ question: '', image: '', options: ['', '', '', ''], answerIndex: 0 });
+
+      useEffect(() => {
+        db.ref('quiz_pool').on('value', snap => {
+          const data = snap.val();
+          if(data) setQuizzes(Object.entries(data).map(([id, val]) => ({id, ...val})));
+        });
+      }, []);
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => setNewQ({...newQ, image: reader.result});
+          reader.readAsDataURL(file);
+        }
+      };
+
+      const saveQuestion = () => {
+        if(!newQ.question) return alert('문제를 입력하세요');
+        db.ref('quiz_pool').push(newQ);
+        setNewQ({ question: '', image: '', options: ['', '', '', ''], answerIndex: 0 });
+      };
+
+      const deleteQuestion = (id) => db.ref(`quiz_pool/${id}`).remove();
+
+      return (
+        <div className="p-8 max-w-4xl mx-auto">
+          <div className="flex justify-between items-end mb-8 border-b pb-4">
+            <h2 className="text-4xl title-font text-indigo-700">문제 관리 저장소</h2>
+            <button onClick={onStartGame} className="px-8 py-3 bg-green-500 text-white rounded-full font-bold text-xl hover:bg-green-600 shadow-lg animate-bounce">게임 세션 만들기</button>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-md mb-10">
+            <h3 className="text-xl font-bold mb-4">새 문제 추가</h3>
+            <input type="text" placeholder="질문을 입력하세요" className="w-full p-3 border-2 rounded-lg mb-4" value={newQ.question} onChange={e=>setNewQ({...newQ, question:e.target.value})} />
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-bold mb-1">사진 업로드</label>
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded" />
+                {newQ.image && <img src={newQ.image} className="mt-2 h-32 rounded object-cover" />}
+              </div>
+              <div className="space-y-2">
+                {newQ.options.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="radio" name="ans" checked={newQ.answerIndex === i} onChange={()=>setNewQ({...newQ, answerIndex:i})} />
+                    <input type="text" placeholder={`선택지 ${i+1}`} className="flex-1 p-2 border rounded" value={opt} onChange={e=>{
+                      const copy = [...newQ.options];
+                      copy[i] = e.target.value;
+                      setNewQ({...newQ, options: copy});
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={saveQuestion} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold">저장소에 추가</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {quizzes.map(q => (
+              <div key={q.id} className="bg-slate-100 p-4 rounded-xl flex justify-between items-start">
+                <div>
+                  <p className="font-bold">{q.question}</p>
+                  <p className="text-sm text-green-600">정답: {q.options[q.answerIndex]}</p>
+                </div>
+                <button onClick={()=>deleteQuestion(q.id)} className="text-red-500 font-bold">삭제</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // 4. 실제 게임 진행 (Host)
+    function GameHostView() {
       const [roomCode, setRoomCode] = useState(null);
       const [gameState, setGameState] = useState('waiting'); // waiting, question, result, final
       const [players, setPlayers] = useState({});
-      const [currentQIndex, setCurrentQIndex] = useState(0);
-      const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+      const [quizPool, setQuizPool] = useState([]);
+      const [currentIdx, setCurrentIdx] = useState(0);
+      const [timeLeft, setTimeLeft] = useState(30);
 
-      // 교실 생성
       useEffect(() => {
-        const code = Math.floor(1000 + Math.random() * 9000).toString(); // 4자리 코드
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
         setRoomCode(code);
         
-        const roomRef = db.ref(`rooms/${code}`);
-        roomRef.set({
-          state: 'waiting',
-          questionIndex: 0,
-          startTime: 0,
+        // 퀴즈 풀 가져오기
+        db.ref('quiz_pool').once('value', snap => {
+          const data = snap.val();
+          if(data) {
+            const list = Object.values(data);
+            setQuizPool(list);
+            db.ref(`rooms/${code}`).set({ state:'waiting', quizList: list, currentIdx: 0 });
+          } else {
+            alert('출제된 문제가 없습니다! 저장소에서 문제를 먼저 만드세요.');
+            window.location.reload();
+          }
         });
 
-        // 학생 입장 실시간 감지
-        db.ref(`rooms/${code}/players`).on('value', (snapshot) => {
-          setPlayers(snapshot.val() || {});
-        });
-
+        db.ref(`rooms/${code}/players`).on('value', snap => setPlayers(snap.val() || {}));
         return () => db.ref(`rooms/${code}`).off();
       }, []);
 
-      // 타이머 관리
       useEffect(() => {
         let timer;
         if (gameState === 'question' && timeLeft > 0) {
           timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
         } else if (gameState === 'question' && timeLeft === 0) {
-          handleTimeUp();
+          showResult();
         }
         return () => clearInterval(timer);
       }, [gameState, timeLeft]);
 
       const startGame = () => {
         setGameState('question');
-        setCurrentQIndex(0);
-        setTimeLeft(TIME_LIMIT);
-        db.ref(`rooms/${roomCode}`).update({ 
-          state: 'question', 
-          questionIndex: 0,
-          startTime: Date.now() 
-        });
+        db.ref(`rooms/${roomCode}`).update({ state: 'question', startTime: Date.now() });
       };
 
-      const handleTimeUp = () => {
+      const showResult = () => {
         setGameState('result');
         db.ref(`rooms/${roomCode}`).update({ state: 'result' });
 
-        // 점수 계산 (속도 비례)
-        const currentQ = QUIZ_DATA[currentQIndex];
+        // 점수 합산 로직
+        const currentQ = quizPool[currentIdx];
         const updates = {};
-        
-        Object.entries(players).forEach(([name, data]) => {
-          let scoreAdd = 0;
-          if (data.currentAnswer === currentQ.answerIndex && data.answerTime) {
-            // 빨리 풀수록 높은 점수 (최대 1000점)
-            const timeTaken = (data.answerTime - data.questionStartTime) / 1000;
-            scoreAdd = Math.max(0, Math.round((1 - timeTaken / TIME_LIMIT) * 1000));
+        Object.entries(players).forEach(([name, p]) => {
+          if (p.answer === currentQ.answerIndex) {
+            const timeTaken = (p.answerTime - p.questionStartTime) / 1000;
+            const score = Math.max(0, Math.round((1 - timeTaken / 30) * 1000));
+            updates[`rooms/${roomCode}/players/${name}/score`] = (p.score || 0) + score;
           }
-          updates[`rooms/${roomCode}/players/${name}/score`] = (data.score || 0) + scoreAdd;
-          updates[`rooms/${roomCode}/players/${name}/currentAnswer`] = null; // 초기화
+          updates[`rooms/${roomCode}/players/${name}/answer`] = null;
         });
-        
         db.ref().update(updates);
       };
 
       const nextQuestion = () => {
-        if (currentQIndex + 1 < QUIZ_DATA.length) {
-          const nextIdx = currentQIndex + 1;
-          setCurrentQIndex(nextIdx);
+        if(currentIdx + 1 < quizPool.length) {
+          const next = currentIdx + 1;
+          setCurrentIdx(next);
+          setTimeLeft(30);
           setGameState('question');
-          setTimeLeft(TIME_LIMIT);
-          db.ref(`rooms/${roomCode}`).update({ 
-            state: 'question', 
-            questionIndex: nextIdx,
-            startTime: Date.now()
-          });
+          db.ref(`rooms/${roomCode}`).update({ state: 'question', currentIdx: next, startTime: Date.now() });
         } else {
           setGameState('final');
           db.ref(`rooms/${roomCode}`).update({ state: 'final' });
         }
       };
 
-      if (!roomCode) return <div className="text-center mt-20 text-2xl">교실 생성 중...</div>;
+      if(!roomCode) return <div className="p-20 text-center text-2xl">방 생성 중...</div>;
 
       return (
-        <div className="p-8 max-w-6xl mx-auto text-center">
+        <div className="p-8 text-center min-h-screen bg-indigo-50">
           {gameState === 'waiting' && (
             <div>
-              <h2 className="text-4xl font-bold mb-4">화면의 코드를 입력해 입장하세요!</h2>
-              <div className="text-8xl font-black text-blue-600 bg-white inline-block py-4 px-12 rounded-xl shadow-xl tracking-widest">{roomCode}</div>
-              
-              <div className="mt-12">
-                <h3 className="text-2xl font-bold mb-4">현재 입장 인원: {Object.keys(players).length}명</h3>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {Object.keys(players).map(name => (
-                    <span key={name} className="px-6 py-2 bg-gray-200 rounded-full font-bold text-lg">{name}</span>
-                  ))}
+              <h2 className="text-3xl mb-4 font-bold">친구들아 모여라!</h2>
+              <div className="text-9xl title-font text-indigo-600 mb-10">{roomCode}</div>
+              <div className="bg-white rounded-3xl p-8 shadow-xl max-w-4xl mx-auto">
+                <h3 className="text-xl font-bold mb-4">접속 인원: {Object.keys(players).length}명</h3>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {Object.keys(players).map(name => <span key={name} className="px-6 py-2 bg-indigo-100 rounded-full font-bold text-indigo-700 animate-bounce">{name}</span>)}
                 </div>
+                <button onClick={startGame} className="mt-10 px-16 py-5 bg-green-500 text-white rounded-2xl text-3xl font-black shadow-lg">게임 시작하기!</button>
               </div>
-              
-              <button onClick={startGame} className="mt-12 px-12 py-4 bg-green-500 text-white font-bold text-2xl rounded-xl hover:bg-green-600 shadow-lg">게임 시작!</button>
             </div>
           )}
 
           {gameState === 'question' && (
-            <div className="mt-10">
-              <div className="text-6xl font-black mb-8 text-red-500">{timeLeft}</div>
-              <h2 className="text-5xl font-bold bg-white p-10 rounded-xl shadow-md mb-10">{QUIZ_DATA[currentQIndex].question}</h2>
-              <div className="grid grid-cols-2 gap-6 h-64">
-                {['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-500'].map((color, idx) => (
-                  <div key={idx} className={`flex items-center justify-center text-4xl font-bold text-white rounded-xl shadow-md ${color}`}>
-                    {QUIZ_DATA[currentQIndex].options[idx]}
+            <div className="max-w-6xl mx-auto">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-4xl font-black text-red-500 bg-white px-8 py-2 rounded-full shadow-md">{timeLeft}s</span>
+                <span className="text-2xl font-bold">Q {currentIdx + 1} / {quizPool.length}</span>
+              </div>
+              <h2 className="text-4xl font-bold bg-white p-8 rounded-2xl shadow-md mb-6">{quizPool[currentIdx].question}</h2>
+              {quizPool[currentIdx].image && <img src={quizPool[currentIdx].image} className="mx-auto h-64 rounded-xl shadow-lg mb-8 object-contain" />}
+              <div className="grid grid-cols-2 gap-4 h-64">
+                {quizPool[currentIdx].options.map((opt, i) => (
+                  <div key={i} className={`flex items-center justify-center text-3xl font-bold text-white rounded-xl shadow-md ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>
+                    {opt}
                   </div>
                 ))}
               </div>
-              <button onClick={handleTimeUp} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">강제 스킵</button>
             </div>
           )}
 
           {gameState === 'result' && (
             <div className="mt-20">
-              <h2 className="text-5xl font-bold mb-10">정답: {QUIZ_DATA[currentQIndex].options[QUIZ_DATA[currentQIndex].answerIndex]}</h2>
-              <button onClick={nextQuestion} className="px-10 py-4 bg-blue-600 text-white font-bold text-2xl rounded-xl hover:bg-blue-700 shadow-lg">
-                {currentQIndex + 1 < QUIZ_DATA.length ? '다음 문제' : '최종 결과 보기'}
+              <h2 className="text-5xl font-bold mb-4">정답은?</h2>
+              <div className="text-6xl title-font text-indigo-600 mb-12">{quizPool[currentIdx].options[quizPool[currentIdx].answerIndex]}</div>
+              <button onClick={nextQuestion} className="px-12 py-5 bg-indigo-600 text-white rounded-2xl text-2xl font-bold shadow-xl">
+                {currentIdx + 1 < quizPool.length ? '다음 문제로' : '최종 순위표 보기'}
               </button>
             </div>
           )}
 
           {gameState === 'final' && (
-            <div className="mt-10">
-              <h2 className="text-6xl font-black text-yellow-500 mb-10 drop-shadow-md">🏆 최종 순위표 🏆</h2>
-              <div className="space-y-6 flex flex-col items-center">
-                {Object.entries(players)
-                  .sort((a, b) => b[1].score - a[1].score)
-                  .slice(0, 3)
-                  .map(([name, data], idx) => (
-                    <div key={name} className={`w-1/2 p-6 rounded-xl flex justify-between items-center text-3xl font-bold shadow-lg ${idx === 0 ? 'bg-yellow-300 text-yellow-900 scale-110' : idx === 1 ? 'bg-gray-300' : 'bg-orange-300'}`}>
-                      <span>{idx + 1}등 {name}</span>
-                      <span>{data.score || 0} pt</span>
-                    </div>
-                  ))}
-              </div>
+            <div className="max-w-2xl mx-auto mt-10">
+              <h2 className="text-6xl title-font text-amber-500 mb-12 drop-shadow-lg">🏆 TOP 3 🏆</h2>
+              {Object.entries(players).sort((a,b)=>b[1].score - a[1].score).slice(0,3).map(([name, p], i) => (
+                <div key={name} className={`flex justify-between p-6 rounded-2xl mb-4 text-3xl font-black shadow-lg ${i===0?'bg-amber-300 scale-110':i===1?'bg-slate-300':'bg-orange-300'}`}>
+                  <span>{i+1}위 {name}</span>
+                  <span>{p.score || 0}pt</span>
+                </div>
+              ))}
+              <button onClick={()=>window.location.reload()} className="mt-10 text-slate-400 font-bold underline">처음으로 돌아가기</button>
             </div>
           )}
         </div>
       );
     }
 
-    // ==========================================
-    // 🧑‍🎓 학생용 리모컨 화면
-    // ==========================================
+    // 5. 학생용 (리모컨)
     function StudentView() {
       const [roomCode, setRoomCode] = useState('');
       const [name, setName] = useState('');
-      const [joined, setJoined] = useState(false);
-      const [roomState, setRoomState] = useState('waiting'); // waiting, question, result, final
-      const [myScore, setMyScore] = useState(0);
+      const [isJoined, setIsJoined] = useState(false);
+      const [gameData, setGameData] = useState({ state: 'waiting' });
       const [hasAnswered, setHasAnswered] = useState(false);
-      const [startTime, setStartTime] = useState(0);
 
-      const joinRoom = () => {
-        if (!roomCode || !name) return alert('코드와 이름을 모두 입력해주세요!');
-        
-        const playerRef = db.ref(`rooms/${roomCode}/players/${name}`);
-        playerRef.set({ score: 0, currentAnswer: null }).then(() => {
-          setJoined(true);
-          
-          // 방 상태 동기화
-          db.ref(`rooms/${roomCode}`).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setRoomState(data.state);
-              setStartTime(data.startTime);
-              if (data.state === 'question') setHasAnswered(false);
-            }
-          });
-
-          // 내 점수 동기화
-          playerRef.on('value', (snap) => {
-            if(snap.val()) setMyScore(snap.val().score || 0);
-          });
+      const join = () => {
+        if(!roomCode || !name) return alert('모두 입력해주세요.');
+        db.ref(`rooms/${roomCode}`).on('value', snap => {
+          const data = snap.val();
+          if(!data) return alert('존재하지 않는 방입니다.');
+          setGameData(data);
+          setIsJoined(true);
         });
+        db.ref(`rooms/${roomCode}/players/${name}`).set({ score: 0, answer: null });
       };
 
-      const submitAnswer = (index) => {
-        if (hasAnswered) return;
+      const sendAnswer = (idx) => {
+        if(hasAnswered) return;
         setHasAnswered(true);
         db.ref(`rooms/${roomCode}/players/${name}`).update({
-          currentAnswer: index,
+          answer: idx,
           answerTime: Date.now(),
-          questionStartTime: startTime
+          questionStartTime: gameData.startTime
         });
       };
 
-      if (!joined) {
+      useEffect(() => {
+        if(gameData.state === 'question') setHasAnswered(false);
+      }, [gameData.state, gameData.currentIdx]);
+
+      if(!isJoined) {
         return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-400 p-6">
-            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-              <h2 className="text-3xl font-black text-center mb-6">게임 입장</h2>
-              <input 
-                type="text" placeholder="교실 코드 4자리" maxLength="4"
-                className="w-full text-center text-3xl font-bold p-4 mb-4 border-4 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
-                value={roomCode} onChange={e => setRoomCode(e.target.value)}
-              />
-              <input 
-                type="text" placeholder="자신의 이름 (학번+이름)" 
-                className="w-full text-center text-xl font-bold p-4 mb-6 border-4 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
-                value={name} onChange={e => setName(e.target.value)}
-              />
-              <button onClick={joinRoom} className="w-full bg-blue-600 text-white font-bold text-2xl py-4 rounded-xl hover:bg-blue-700 shadow-md">입장하기</button>
+          <div className="flex flex-col items-center justify-center min-h-screen bg-amber-400 p-6">
+            <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm">
+              <h2 className="text-3xl font-black text-center mb-8">입장하기</h2>
+              <input type="text" placeholder="방 코드 4자리" maxLength="4" className="w-full p-4 border-4 rounded-2xl mb-4 text-center text-2xl font-bold" value={roomCode} onChange={e=>setRoomCode(e.target.value)} />
+              <input type="text" placeholder="닉네임" className="w-full p-4 border-4 rounded-2xl mb-8 text-center text-2xl font-bold" value={name} onChange={e=>setName(e.target.value)} />
+              <button onClick={join} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-2xl shadow-lg active:scale-95 transition">도전!</button>
             </div>
           </div>
         );
       }
 
       return (
-        <div className="flex flex-col min-h-screen bg-gray-100 p-4">
-          <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm font-bold text-xl">
+        <div className="p-4 min-h-screen flex flex-col bg-slate-100 text-center">
+          <div className="bg-white p-4 rounded-2xl shadow-sm mb-6 flex justify-between font-bold text-lg">
             <span>👤 {name}</span>
-            <span>⭐ {myScore} pt</span>
+            <span>⭐ {(gameData.players && gameData.players[name]?.score) || 0}pt</span>
           </div>
 
-          {roomState === 'waiting' && (
-            <div className="flex-1 flex items-center justify-center text-3xl font-bold text-gray-500 text-center animate-pulse">
-              선생님이 게임을 시작할 때까지<br/>화면을 보며 대기하세요...
-            </div>
-          )}
-
-          {roomState === 'question' && (
-            <div className="flex-1 flex flex-col gap-4 h-full">
+          {gameData.state === 'waiting' && <div className="flex-1 flex items-center justify-center text-2xl font-bold text-slate-400 animate-pulse">선생님이 게임을 시작할 때까지<br/>기다려주세요!</div>}
+          
+          {gameData.state === 'question' && (
+            <div className="flex-1 flex flex-col gap-4">
               {hasAnswered ? (
-                <div className="flex-1 flex items-center justify-center text-3xl font-bold text-gray-500">
-                  제출 완료! 다른 친구들을 기다리는 중...
-                </div>
+                <div className="flex-1 flex items-center justify-center text-2xl font-bold text-slate-500">답변 제출 완료!<br/>화면을 보세요.</div>
               ) : (
-                ['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-500'].map((color, idx) => (
-                  <button 
-                    key={idx} 
-                    onClick={() => submitAnswer(idx)}
-                    className={`flex-1 rounded-xl shadow-lg active:scale-95 transition transform ${color}`}
-                  ></button>
+                ['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'].map((color, i) => (
+                  <button key={i} onClick={()=>sendAnswer(i)} className={`flex-1 rounded-3xl shadow-xl active:scale-90 transition ${color}`}></button>
                 ))
               )}
             </div>
           )}
 
-          {roomState === 'result' && (
-            <div className="flex-1 flex items-center justify-center text-3xl font-bold text-center">
-              선생님 화면에서 정답을 확인하세요!
-            </div>
-          )}
-
-          {roomState === 'final' && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <h2 className="text-4xl font-black mb-4">게임 종료!</h2>
-              <p className="text-2xl font-bold">내 최종 점수: {myScore}점</p>
-              <p className="text-xl mt-4 text-gray-600">선생님 화면에서 최종 순위를 확인하세요.</p>
-            </div>
-          )}
+          {gameData.state === 'result' && <div className="flex-1 flex items-center justify-center text-3xl font-black text-indigo-600 animate-bounce">정답 확인 시간!</div>}
+          {gameData.state === 'final' && <div className="flex-1 flex items-center justify-center text-3xl font-black text-amber-500">게임 종료! 고생했어요!</div>}
         </div>
       );
     }
