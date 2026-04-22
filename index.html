@@ -75,13 +75,18 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // 퀴즈 데이터 (가장 쉬운 2글자 5라운드)
+        // 퀴즈 데이터 (가장 쉬운 2글자 10라운드)
         const QUIZ_DATA = [
             { chosung: 'ㄱ ㄱ', examples: '가구, 고기, 경기, 공기, 기계, 감기, 광고, 과거, 국기' },
-            { chosung: 'ㅅ ㅈ', examples: '사진, 사자, 수저, 사전, 상자, 시장, 소주, 성적, 시간' },
-            { chosung: 'ㅇ ㅇ', examples: '우유, 아이, 이유, 언어, 음악, 우연, 영웅, 얼음, 안경' },
-            { chosung: 'ㅂ ㅂ', examples: '바보, 부부, 방법, 비빔, 봄비, 불법, 분필, 별빛, 반찬' },
-            { chosung: 'ㅎ ㄱ', examples: '학교, 한글, 합격, 한강, 한국, 휴가, 현관, 향기, 호구' }
+            { chosung: 'ㅅ ㅈ', examples: '사진, 사자, 수저, 사전, 상자, 시장, 소주, 성적, 사장' },
+            { chosung: 'ㅇ ㅇ', examples: '우유, 아이, 이유, 언어, 음악, 우연, 영웅, 얼음, 웃음' },
+            { chosung: 'ㅂ ㅂ', examples: '바보, 부부, 방법, 비빔, 봄비, 불법, 불빛, 별빛, 비법' },
+            { chosung: 'ㅎ ㄱ', examples: '학교, 한글, 합격, 한강, 한국, 휴가, 현관, 향기, 호구' },
+            { chosung: 'ㄱ ㅅ', examples: '가수, 가슴, 감사, 간식, 계산, 계속, 공사, 교실, 기사' },
+            { chosung: 'ㅅ ㅅ', examples: '사실, 사슴, 생산, 선수, 세상, 소설, 순서, 식사, 상식' },
+            { chosung: 'ㅇ ㅈ', examples: '안전, 여자, 오전, 우주, 운전, 의자, 인정, 일정, 이자' },
+            { chosung: 'ㅁ ㅈ', examples: '맥주, 매점, 먼지, 먼저, 모자, 모집, 문자, 문제, 면적' },
+            { chosung: 'ㄱ ㄹ', examples: '가루, 가로, 거리, 계란, 고래, 구름, 권리, 그림, 기린' }
         ];
 
         function App() {
