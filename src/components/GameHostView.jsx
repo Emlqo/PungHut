@@ -67,6 +67,7 @@ export default function GameHostView({ roomCode, onBack }) {
   };
 
   const playersList = roomData.players ? Object.keys(roomData.players) : [];
+  const currentQuiz = roomData.state !== 'waiting' && roomData.state !== 'final' ? roomData.quizList[roomData.currentIdx] : null;
 
   return (
     <div className="p-8 text-center min-h-screen bg-slate-100 relative">
@@ -100,24 +101,36 @@ export default function GameHostView({ roomCode, onBack }) {
             <span className="text-5xl font-black text-red-500 bg-white px-8 py-4 rounded-full shadow-lg">{timeLeft}초</span>
             <span className="text-3xl font-bold bg-indigo-200 px-6 py-2 rounded-full text-indigo-800">Q {roomData.currentIdx + 1}</span>
           </div>
-          <h2 className="text-5xl font-black bg-white p-12 rounded-3xl shadow-xl mb-10">{roomData.quizList[roomData.currentIdx].question}</h2>
-          <div className="grid grid-cols-2 gap-6 h-64">
-            {roomData.quizList[roomData.currentIdx].options.map((opt, i) => (
+          
+          <div className="bg-white p-8 rounded-3xl shadow-xl mb-10">
+            <h2 className="text-5xl font-black mb-6 leading-tight">{currentQuiz.question}</h2>
+            {/* 이미지가 있을 경우에만 화면에 렌더링 */}
+            {currentQuiz.image && (
+              <img src={currentQuiz.image} alt="문제 이미지" className="max-h-72 mx-auto rounded-2xl shadow-md object-contain mb-4 border-4 border-slate-100" />
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 h-48">
+            {currentQuiz.options.map((opt, i) => (
               <div key={i} className={`flex items-center justify-center text-4xl font-bold text-white rounded-2xl shadow-xl ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>
                 {opt}
               </div>
             ))}
           </div>
-          <button onClick={showResult} className="mt-8 px-6 py-3 bg-slate-800 text-white rounded-xl font-bold">강제 스킵</button>
+          <button onClick={showResult} className="mt-8 px-6 py-3 bg-slate-800 text-white rounded-xl font-bold">시간 건너뛰기</button>
         </div>
       )}
 
       {roomData.state === 'result' && (
         <div className="mt-20">
           <h2 className="text-4xl font-bold mb-6 text-slate-600">정답!</h2>
-          <div className="text-7xl font-black text-green-600 mb-16 bg-white inline-block px-12 py-6 rounded-3xl shadow-xl">
-            {roomData.quizList[roomData.currentIdx].options[roomData.quizList[roomData.currentIdx].answerIndex]}
+          <div className="text-7xl font-black text-green-600 mb-8 bg-white inline-block px-12 py-6 rounded-3xl shadow-xl">
+            {currentQuiz.options[currentQuiz.answerIndex]}
           </div>
+          {/* 정답 화면에서도 어떤 문제였는지 작게 보여주기 */}
+          {currentQuiz.image && (
+            <img src={currentQuiz.image} className="h-40 mx-auto rounded-xl shadow-md object-contain mb-8 opacity-80" />
+          )}
           <div>
             <button onClick={nextQuestion} className="px-16 py-6 bg-indigo-600 text-white rounded-full text-3xl font-bold shadow-xl">
               {roomData.currentIdx + 1 < roomData.quizList.length ? '다음 문제' : '최종 결과 확인'}
