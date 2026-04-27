@@ -50,6 +50,11 @@ export default function GameHostView({ roomCode, onBack }) {
     update(ref(db), updates);
   };
 
+  // 중간 순위표로 이동
+  const showScoreboard = () => {
+    update(ref(db, 'active_sessions/' + roomCode), { state: 'scoreboard' });
+  };
+
   const nextQuestion = () => {
     if(roomData.currentIdx + 1 < roomData.quizList.length) {
       setTimeLeft(30);
@@ -67,97 +72,140 @@ export default function GameHostView({ roomCode, onBack }) {
   };
 
   const playersList = roomData.players ? Object.keys(roomData.players) : [];
+  const sortedPlayers = roomData.players 
+    ? Object.entries(roomData.players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0))
+    : [];
   const currentQuiz = roomData.state !== 'waiting' && roomData.state !== 'final' ? roomData.quizList[roomData.currentIdx] : null;
 
   return (
-    <div className="p-8 text-center min-h-screen bg-slate-100 relative">
-      <button onClick={closeSession} className="absolute top-8 left-8 px-4 py-2 bg-red-500 text-white rounded font-bold shadow">방폭파/종료</button>
+    <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-hidden">
+      <button onClick={closeSession} className="absolute top-8 left-8 px-4 py-2 bg-red-500 text-white rounded font-bold shadow-lg z-50">방폭파/종료</button>
       
+      {/* 1. 대기실 */}
       {roomData.state === 'waiting' && (
         <div className="mt-10">
-          <h2 className="text-3xl mb-4 font-bold text-slate-600">[{roomData.targetClass}] 학생들, 아래 코드로 입장하세요!</h2>
-          <div className="text-9xl title-font text-indigo-600 mb-8 drop-shadow-xl">{roomCode}</div>
-          
-          <div className="mb-10">
-            <button onClick={toggleLock} className={`px-8 py-4 rounded-full text-xl font-bold shadow-md transition ${roomData.isLocked ? 'bg-red-500 text-white' : 'bg-white text-indigo-700 border-2 border-indigo-200'}`}>
-              {roomData.isLocked ? '🔒 현재 입장 불가능 (잠김)' : '🔓 입장 허용 중 (여기를 눌러 잠금)'}
-            </button>
-          </div>
-
+          <h2 className="text-3xl mb-4 font-bold text-slate-600">[{roomData.targetClass}] 입장 코드</h2>
+          <div className="text-9xl title-font text-indigo-600 mb-8 drop-shadow-xl animate-pulse">{roomCode}</div>
+          <button onClick={toggleLock} className={`mb-10 px-8 py-4 rounded-full text-xl font-bold shadow-md transition ${roomData.isLocked ? 'bg-red-500 text-white' : 'bg-white text-indigo-700 border-2 border-indigo-200'}`}>
+            {roomData.isLocked ? '🔒 입장 마감됨' : '🔓 입장 중 (클릭 시 마감)'}
+          </button>
           <div className="bg-white rounded-3xl p-8 shadow-xl max-w-4xl mx-auto border-t-8 border-indigo-500">
-            <h3 className="text-2xl font-bold mb-6">현재 접속 명단 ({playersList.length}명)</h3>
+            <h3 className="text-2xl font-bold mb-6">참여 중인 학생: {playersList.length}명</h3>
             <div className="flex flex-wrap gap-4 justify-center min-h-[100px]">
-              {playersList.length === 0 && <span className="text-gray-400 mt-4">입장을 기다리고 있습니다...</span>}
-              {playersList.map(name => <span key={name} className="px-6 py-3 bg-indigo-100 rounded-full font-bold text-xl text-indigo-800 shadow-sm">{name}</span>)}
+              {playersList.map(name => <span key={name} className="px-6 py-3 bg-indigo-100 rounded-full font-bold text-xl text-indigo-800 shadow-sm animate-bounce">{name}</span>)}
             </div>
-            <button onClick={startGame} className="mt-12 px-20 py-5 bg-indigo-600 text-white rounded-2xl text-3xl font-black shadow-lg hover:bg-indigo-700">문제 풀이 시작!</button>
+            <button onClick={startGame} className="mt-12 px-20 py-5 bg-indigo-600 text-white rounded-2xl text-3xl font-black shadow-lg hover:scale-105 transition transform">게임 시작!</button>
           </div>
         </div>
       )}
 
+      {/* 2. 문제 화면 */}
       {roomData.state === 'question' && (
         <div className="max-w-5xl mx-auto mt-10">
           <div className="flex justify-between items-center mb-8">
-            <span className="text-5xl font-black text-red-500 bg-white px-8 py-4 rounded-full shadow-lg">{timeLeft}초</span>
-            <span className="text-3xl font-bold bg-indigo-200 px-6 py-2 rounded-full text-indigo-800">Q {roomData.currentIdx + 1}</span>
+            <span className="text-5xl font-black text-red-500 bg-white px-8 py-4 rounded-full shadow-lg border-4 border-red-100">{timeLeft}s</span>
+            <span className="text-3xl font-bold bg-indigo-200 px-6 py-2 rounded-full text-indigo-800">Q {roomData.currentIdx + 1} / {roomData.quizList.length}</span>
           </div>
-          
           <div className="bg-white p-8 rounded-3xl shadow-xl mb-10">
             <h2 className="text-5xl font-black mb-6 leading-tight">{currentQuiz.question}</h2>
-            {/* 이미지가 있을 경우에만 화면에 렌더링 */}
-            {currentQuiz.image && (
-              <img src={currentQuiz.image} alt="문제 이미지" className="max-h-72 mx-auto rounded-2xl shadow-md object-contain mb-4 border-4 border-slate-100" />
-            )}
+            {currentQuiz.image && <img src={currentQuiz.image} className="max-h-72 mx-auto rounded-2xl shadow-md object-contain border-4 border-slate-50" />}
           </div>
-
           <div className="grid grid-cols-2 gap-6 h-48">
             {currentQuiz.options.map((opt, i) => (
-              <div key={i} className={`flex items-center justify-center text-4xl font-bold text-white rounded-2xl shadow-xl ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>
-                {opt}
-              </div>
+              <div key={i} className={`flex items-center justify-center text-4xl font-bold text-white rounded-2xl shadow-xl ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>{opt}</div>
             ))}
           </div>
-          <button onClick={showResult} className="mt-8 px-6 py-3 bg-slate-800 text-white rounded-xl font-bold">시간 건너뛰기</button>
         </div>
       )}
 
+      {/* 3. 정답 공개 화면 */}
       {roomData.state === 'result' && (
         <div className="mt-20">
-          <h2 className="text-4xl font-bold mb-6 text-slate-600">정답!</h2>
-          <div className="text-7xl font-black text-green-600 mb-8 bg-white inline-block px-12 py-6 rounded-3xl shadow-xl">
+          <h2 className="text-4xl font-bold mb-6 text-slate-500 italic">정답은 과연...?</h2>
+          <div className="text-7xl font-black text-green-600 mb-12 bg-white inline-block px-16 py-8 rounded-3xl shadow-2xl border-b-8 border-green-200">
             {currentQuiz.options[currentQuiz.answerIndex]}
           </div>
-          {/* 정답 화면에서도 어떤 문제였는지 작게 보여주기 */}
-          {currentQuiz.image && (
-            <img src={currentQuiz.image} className="h-40 mx-auto rounded-xl shadow-md object-contain mb-8 opacity-80" />
-          )}
           <div>
-            <button onClick={nextQuestion} className="px-16 py-6 bg-indigo-600 text-white rounded-full text-3xl font-bold shadow-xl">
-              {roomData.currentIdx + 1 < roomData.quizList.length ? '다음 문제' : '최종 결과 확인'}
+            <button onClick={showScoreboard} className="px-12 py-6 bg-indigo-600 text-white rounded-full text-3xl font-bold shadow-xl hover:bg-indigo-700 transition transform hover:scale-105">
+              순위 확인하기 📊
             </button>
           </div>
         </div>
       )}
 
-      {roomData.state === 'final' && (
-        <div className="max-w-3xl mx-auto mt-16">
-          <h2 className="text-6xl title-font text-amber-500 mb-10">최종 순위표</h2>
-          <div className="space-y-4">
-            {playersList.length > 0 ? (
-              Object.entries(roomData.players)
-                .sort((a,b)=> (b[1].score||0) - (a[1].score||0))
-                .map(([name, p], i) => (
-                  <div key={name} className={`flex justify-between items-center p-6 rounded-2xl text-3xl font-black shadow ${i===0?'bg-amber-300 scale-105 z-10':i===1?'bg-slate-300':i===2?'bg-orange-300':'bg-white'}`}>
-                    <span>{i+1}등 {name}</span>
-                    <span>{p.score || 0} pt</span>
-                  </div>
-                ))
-            ) : (
-              <div className="text-3xl font-bold text-gray-500">참여자가 없습니다.</div>
-            )}
+      {/* 4. 중간 순위표 (추가됨) */}
+      {roomData.state === 'scoreboard' && (
+        <div className="max-w-4xl mx-auto mt-10">
+          <h2 className="text-5xl font-black text-indigo-700 mb-10 title-font">현재 순위 🚩</h2>
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+            {sortedPlayers.slice(0, 5).map(([name, p], i) => (
+              <div key={name} className={`flex justify-between items-center p-6 border-b last:border-0 ${i === 0 ? 'bg-amber-50' : ''}`}>
+                <div className="flex items-center gap-6">
+                  <span className={`text-4xl font-black ${i === 0 ? 'text-amber-500' : 'text-slate-300'}`}>{i + 1}</span>
+                  <span className="text-3xl font-bold text-slate-800">{name}</span>
+                </div>
+                <span className="text-3xl font-black text-indigo-600">{p.score || 0} pt</span>
+              </div>
+            ))}
           </div>
+          <button onClick={nextQuestion} className="mt-12 px-16 py-6 bg-amber-500 text-white rounded-full text-3xl font-black shadow-xl hover:scale-105 transition transform">
+             {roomData.currentIdx + 1 < roomData.quizList.length ? '다음 문제로!' : '최종 순위 발표! 🏆'}
+          </button>
         </div>
       )}
+
+      {/* 5. 최종 결과 포디움 (화려하게 강화됨) */}
+      {roomData.state === 'final' && (
+        <div className="h-screen flex flex-col items-center justify-end pb-20 overflow-hidden">
+          <h2 className="text-7xl title-font text-amber-500 mb-20 drop-shadow-lg animate-bounce">CONGRATULATIONS! 🎉</h2>
+          
+          <div className="flex items-end gap-4 w-full max-w-5xl h-[500px]">
+            {/* 2등 기둥 */}
+            {sortedPlayers[1] && (
+              <div className="flex-1 flex flex-col items-center">
+                <div className="text-3xl font-black mb-4 truncate w-full px-2 text-slate-600">{sortedPlayers[1][0]}</div>
+                <div className="w-full bg-slate-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1s_ease-out]" style={{ height: '60%' }}>
+                  <span className="text-7xl font-black text-white opacity-50">2</span>
+                  <span className="mt-4 text-2xl font-bold text-slate-700">{sortedPlayers[1][1].score} pt</span>
+                </div>
+              </div>
+            )}
+
+            {/* 1등 기둥 */}
+            {sortedPlayers[0] && (
+              <div className="flex-1 flex flex-col items-center">
+                <div className="text-5xl mb-4 animate-bounce text-amber-400">👑</div>
+                <div className="text-4xl font-black mb-4 truncate w-full px-2 text-indigo-800">{sortedPlayers[0][0]}</div>
+                <div className="w-full bg-amber-400 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 border-x-4 border-t-4 border-amber-200 animate-[slideUp_0.7s_ease-out]" style={{ height: '90%' }}>
+                  <span className="text-9xl font-black text-white opacity-60">1</span>
+                  <span className="mt-4 text-3xl font-black text-amber-900">{sortedPlayers[0][1].score} pt</span>
+                </div>
+              </div>
+            )}
+
+            {/* 3등 기둥 */}
+            {sortedPlayers[2] && (
+              <div className="flex-1 flex flex-col items-center">
+                <div className="text-3xl font-black mb-4 truncate w-full px-2 text-orange-700">{sortedPlayers[2][0]}</div>
+                <div className="w-full bg-orange-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1.3s_ease-out]" style={{ height: '40%' }}>
+                  <span className="text-7xl font-black text-white opacity-50">3</span>
+                  <span className="mt-4 text-2xl font-bold text-orange-900">{sortedPlayers[2][1].score} pt</span>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <button onClick={() => window.location.reload()} className="mt-16 text-slate-400 font-bold underline hover:text-slate-600">처음으로 돌아가기</button>
+        </div>
+      )}
+
+      {/* 애니메이션 정의 */}
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
