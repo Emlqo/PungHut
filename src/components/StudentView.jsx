@@ -68,10 +68,10 @@ export default function StudentView({ onBack }) {
 
   const currentScore = gameData.players && gameData.players[name] ? gameData.players[name].score : 0;
   
-  // 💡 [추가된 부분] 현재 진행 중인 문제의 '보기 텍스트 배열'을 가져옵니다.
-  const currentOptions = gameData.quizList && gameData.quizList[gameData.currentIdx] 
-    ? gameData.quizList[gameData.currentIdx].options 
-    : ['', '', '', ''];
+  // 현재 진행 중인 문제 데이터 가로채기
+  const currentQuiz = gameData.quizList && gameData.quizList[gameData.currentIdx] 
+    ? gameData.quizList[gameData.currentIdx] 
+    : null;
 
   return (
     <div className="p-4 min-h-screen flex flex-col bg-slate-100 text-center">
@@ -86,18 +86,25 @@ export default function StudentView({ onBack }) {
         </div>
       )}
       
-      {gameData.state === 'question' && (
+      {gameData.state === 'question' && currentQuiz && (
         <div className="flex-1 flex flex-col gap-4">
+          
+          {/* 💡 [추가된 부분] 학생 폰 화면 상단에 큼지막하게 문제 텍스트 띄우기 */}
+          {!hasAnswered && (
+            <div className="bg-white p-6 rounded-3xl shadow-md mb-2">
+              <h2 className="text-2xl font-black text-slate-800 break-keep">{currentQuiz.question}</h2>
+            </div>
+          )}
+
           {hasAnswered ? (
             <div className="flex-1 flex flex-col items-center justify-center bg-slate-200 rounded-3xl">
               <div className="text-3xl font-black text-slate-600">제출 완료!<br/>앞 화면을 보세요.</div>
             </div>
           ) : (
-            ['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'].map((color, i) => (
-              <button key={i} onClick={()=>sendAnswer(i)} className={`flex-1 flex items-center justify-center p-4 rounded-[2rem] shadow-[0_10px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all ${color}`}>
-                {/* 💡 [추가된 부분] 버튼 가운데에 흰색으로 보기 텍스트가 큼지막하게 들어갑니다! */}
+            currentQuiz.options.map((colorText, i) => (
+              <button key={i} onClick={()=>sendAnswer(i)} className={`flex-1 flex items-center justify-center p-4 rounded-[2rem] shadow-[0_10px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>
                 <span className="text-2xl font-bold text-white break-words drop-shadow-md">
-                  {currentOptions[i]}
+                  {colorText}
                 </span>
               </button>
             ))
@@ -108,6 +115,15 @@ export default function StudentView({ onBack }) {
       {gameData.state === 'result' && (
         <div className="flex-1 flex flex-col items-center justify-center bg-indigo-100 rounded-3xl">
           <div className="text-4xl font-black text-indigo-700">앞 화면에서<br/>정답을 확인하세요!</div>
+        </div>
+      )}
+
+      {/* 중간 순위표 대기 화면 */}
+      {gameData.state === 'scoreboard' && (
+        <div className="flex-1 flex flex-col items-center justify-center bg-amber-50 rounded-3xl border-4 border-amber-200">
+          <div className="text-6xl mb-4 animate-bounce">🚩</div>
+          <div className="text-3xl font-black text-amber-800">현재 순위 발표 중!</div>
+          <div className="text-xl mt-4 font-bold text-slate-600">선생님 화면을 보세요 👀</div>
         </div>
       )}
       
