@@ -85,27 +85,25 @@ export default function StudentView({ onBack }) {
       {gameData.state === 'question' && currentQuiz && (
         <div className="flex-1 flex flex-col gap-4">
           
-          {/* 💡 문제 텍스트 및 사진 영역 */}
-          {!hasAnswered && (
-            <div className="bg-white p-4 rounded-3xl shadow-md flex flex-col items-center shrink-0 border-2 border-slate-100">
-              <h2 className="text-xl md:text-2xl font-black text-slate-800 break-keep text-center leading-snug">
-                {currentQuiz.question}
-              </h2>
-              {/* 드디어 사진이 나옵니다! 모바일 화면에 맞게 크기 제한 (max-h-32) */}
-              {currentQuiz.image && (
-                <img src={currentQuiz.image} alt="문제 이미지" className="mt-3 max-h-32 md:max-h-48 rounded-xl shadow-sm object-contain" />
-              )}
-            </div>
-          )}
+          {/* 💡 [수정됨] hasAnswered 여부와 상관없이 항상 화면 상단에 문제 텍스트와 사진 고정! */}
+          <div className="bg-white p-4 rounded-3xl shadow-md flex flex-col items-center shrink-0 border-2 border-slate-100">
+            <h2 className="text-xl md:text-2xl font-black text-slate-800 break-keep text-center leading-snug">
+              {currentQuiz.question}
+            </h2>
+            {/* 사진이 있다면 출력 */}
+            {currentQuiz.image && (
+              <img src={currentQuiz.image} alt="문제 이미지" className="mt-3 max-h-32 md:max-h-48 rounded-xl shadow-sm object-contain" />
+            )}
+          </div>
 
-          {/* 💡 2x2 바둑판 그리드로 변경된 보기 버튼 */}
+          {/* 하단 영역: 답을 제출했으면 완료 메시지, 아니면 보기 버튼들 표시 */}
           {hasAnswered ? (
-            <div className="flex-1 flex flex-col items-center justify-center bg-slate-200 rounded-3xl">
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-200 rounded-3xl mt-2">
               <div className="text-4xl mb-4">👍</div>
               <div className="text-3xl font-black text-slate-600">제출 완료!<br/>앞 화면을 보세요.</div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 flex-1">
+            <div className="grid grid-cols-2 gap-4 flex-1 mt-2">
               {currentQuiz.options.map((colorText, i) => (
                 <button 
                   key={i} 
