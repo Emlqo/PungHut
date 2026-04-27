@@ -50,7 +50,6 @@ export default function GameHostView({ roomCode, onBack }) {
     update(ref(db), updates);
   };
 
-  // 중간 순위표로 이동
   const showScoreboard = () => {
     update(ref(db, 'active_sessions/' + roomCode), { state: 'scoreboard' });
   };
@@ -81,7 +80,6 @@ export default function GameHostView({ roomCode, onBack }) {
     <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-hidden">
       <button onClick={closeSession} className="absolute top-8 left-8 px-4 py-2 bg-red-500 text-white rounded font-bold shadow-lg z-50">방폭파/종료</button>
       
-      {/* 1. 대기실 */}
       {roomData.state === 'waiting' && (
         <div className="mt-10">
           <h2 className="text-3xl mb-4 font-bold text-slate-600">[{roomData.targetClass}] 입장 코드</h2>
@@ -99,7 +97,6 @@ export default function GameHostView({ roomCode, onBack }) {
         </div>
       )}
 
-      {/* 2. 문제 화면 */}
       {roomData.state === 'question' && (
         <div className="max-w-5xl mx-auto mt-10">
           <div className="flex justify-between items-center mb-8">
@@ -115,10 +112,13 @@ export default function GameHostView({ roomCode, onBack }) {
               <div key={i} className={`flex items-center justify-center text-4xl font-bold text-white rounded-2xl shadow-xl ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>{opt}</div>
             ))}
           </div>
+          {/* 시간 건너뛰기 버튼 확실하게 복구 완료! */}
+          <button onClick={showResult} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition">
+            시간 건너뛰기
+          </button>
         </div>
       )}
 
-      {/* 3. 정답 공개 화면 */}
       {roomData.state === 'result' && (
         <div className="mt-20">
           <h2 className="text-4xl font-bold mb-6 text-slate-500 italic">정답은 과연...?</h2>
@@ -133,7 +133,6 @@ export default function GameHostView({ roomCode, onBack }) {
         </div>
       )}
 
-      {/* 4. 중간 순위표 (추가됨) */}
       {roomData.state === 'scoreboard' && (
         <div className="max-w-4xl mx-auto mt-10">
           <h2 className="text-5xl font-black text-indigo-700 mb-10 title-font">현재 순위 🚩</h2>
@@ -154,13 +153,11 @@ export default function GameHostView({ roomCode, onBack }) {
         </div>
       )}
 
-      {/* 5. 최종 결과 포디움 (화려하게 강화됨) */}
       {roomData.state === 'final' && (
         <div className="h-screen flex flex-col items-center justify-end pb-20 overflow-hidden">
           <h2 className="text-7xl title-font text-amber-500 mb-20 drop-shadow-lg animate-bounce">CONGRATULATIONS! 🎉</h2>
           
           <div className="flex items-end gap-4 w-full max-w-5xl h-[500px]">
-            {/* 2등 기둥 */}
             {sortedPlayers[1] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-3xl font-black mb-4 truncate w-full px-2 text-slate-600">{sortedPlayers[1][0]}</div>
@@ -171,7 +168,6 @@ export default function GameHostView({ roomCode, onBack }) {
               </div>
             )}
 
-            {/* 1등 기둥 */}
             {sortedPlayers[0] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-5xl mb-4 animate-bounce text-amber-400">👑</div>
@@ -183,7 +179,6 @@ export default function GameHostView({ roomCode, onBack }) {
               </div>
             )}
 
-            {/* 3등 기둥 */}
             {sortedPlayers[2] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-3xl font-black mb-4 truncate w-full px-2 text-orange-700">{sortedPlayers[2][0]}</div>
@@ -199,7 +194,6 @@ export default function GameHostView({ roomCode, onBack }) {
         </div>
       )}
 
-      {/* 애니메이션 정의 */}
       <style>{`
         @keyframes slideUp {
           from { transform: translateY(100%); }
