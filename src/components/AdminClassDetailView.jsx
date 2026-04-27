@@ -4,7 +4,8 @@ import { ref, onValue, set, push, remove } from 'firebase/database';
 
 export default function AdminClassDetailView({ className, onBack, onStartSession }) {
   const [questions, setQuestions] = useState([]);
-  const [newQ, setNewQ] = useState({ question: '', options: ['', '', '', ''], answerIndex: 0 });
+  // 이미지(image) 상태 추가
+  const [newQ, setNewQ] = useState({ question: '', image: '', options: ['', '', '', ''], answerIndex: 0 });
 
   useEffect(() => {
     const qRef = ref(db, `school_classes/${className}/questions`);
@@ -16,10 +17,22 @@ export default function AdminClassDetailView({ className, onBack, onStartSession
     return () => unsubscribe();
   }, [className]);
 
+  // 사진을 업로드하면 텍스트(Base64)로 변환해서 저장하는 함수
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setNewQ({ ...newQ, image: reader.result });
+      reader.readAsDataURL(file);
+    }
+  };
+
   const saveQuestion = () => {
     if(!newQ.question) return alert('문제를 입력하세요');
+    if(newQ.options.includes('')) return alert('4개의 보기를 모두 채워주세요!');
+    
     push(ref(db, `school_classes/${className}/questions`), newQ)
-      .then(() => setNewQ({ question: '', options: ['', '', '', ''], answerIndex: 0 }))
+      .then(() => setNewQ({ question: '', image: '', options: ['', '', '', ''], answerIndex: 0 }))
       .catch(e => alert('저장 실패: ' + e.message));
   };
 
@@ -27,7 +40,6 @@ export default function AdminClassDetailView({ className, onBack, onStartSession
 
   const openSession = () => {
     if(questions.length === 0) return alert('문제가 하나도 없습니다! 먼저 문제를 만들어주세요.');
-    
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     
     set(ref(db, 'active_sessions/' + code), {
@@ -57,7 +69,18 @@ export default function AdminClassDetailView({ className, onBack, onStartSession
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-md h-fit">
           <h3 className="text-xl font-bold mb-4">새 문제 추가</h3>
+          
+          {/* 문제 입력 */}
           <input type="text" placeholder="질문을 입력하세요" className="w-full p-3 border-2 rounded-lg mb-4 font-bold" value={newQ.question} onChange={e=>setNewQ({...newQ, question:e.target.value})} />
+          
+          {/* 사진 업로드 영역 추가 */}
+          <div className="mb-4 p-4 border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50">
+            <label className="block text-sm font-bold text-indigo-700 mb-2">📸 사진 첨부 (선택)</label>
+            <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full text-sm" />
+            {newQ.image && <img src={newQ.image} alt="미리보기" className="mt-3 h-32 w-full object-contain rounded-lg bg-white shadow-sm" />}
+          </div>
+
+          {/* 보기 입력 */}
           <div className="space-y-2 mb-6">
             {newQ.options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -70,17 +93,20 @@ export default function AdminClassDetailView({ className, onBack, onStartSession
               </div>
             ))}
           </div>
-          <button onClick={saveQuestion} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600">이 반에 문제 저장</button>
+          <button onClick={saveQuestion} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-md">이 반에 문제 저장</button>
         </div>
 
         <div className="lg:col-span-2 space-y-3">
           <h3 className="text-xl font-bold mb-4">현재 저장된 문제 ({questions.length}개)</h3>
-          {questions.length === 0 && <div className="p-8 text-center text-slate-400 bg-slate-100 rounded-2xl">저장된 문제가 없습니다.</div>}
           {questions.map((q, idx) => (
             <div key={q.id} className="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm border-l-8 border-indigo-400">
-              <div className="flex-1">
-                <p className="font-bold text-lg"><span className="text-indigo-500 mr-2">Q{idx+1}.</span>{q.question}</p>
-                <p className="text-sm text-green-600 mt-1">정답: {q.options[q.answerIndex]}</p>
+              <div className="flex-1 flex gap-4 items-center">
+                {/* 리스트에서도 사진이 있으면 작게 보여줌 */}
+                {q.image && <img src={q.image} className="w-16 h-16 object-cover rounded-lg shadow-sm border" />}
+                <div>
+                  <p className="font-bold text-lg"><span className="text-indigo-500 mr-2">Q{idx+1}.</span>{q.question}</p>
+                  <p className="text-sm text-green-600 mt-1">정답: {q.options[q.answerIndex]}</p>
+                </div>
               </div>
               <button onClick={()=>deleteQuestion(q.id)} className="text-red-500 font-bold bg-slate-50 px-4 py-2 rounded shadow-sm">삭제</button>
             </div>
