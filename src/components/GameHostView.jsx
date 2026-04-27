@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update, remove } from 'firebase/database';
+// 🔥 1. onDisconnect 모듈 추가 수입
+import { ref, onValue, update, remove, onDisconnect } from 'firebase/database';
 
 export default function GameHostView({ roomCode, onBack }) {
   const [roomData, setRoomData] = useState(null);
@@ -8,8 +9,17 @@ export default function GameHostView({ roomCode, onBack }) {
 
   useEffect(() => {
     const roomRef = ref(db, 'active_sessions/' + roomCode);
+
+    // 🔥 2. 유령방 방지 로직: 선생님 브라우저가 꺼지거나 튕기면 서버에서 방을 자동 폭파시킴!
+    onDisconnect(roomRef).remove();
+
     const unsubscribe = onValue(roomRef, snap => setRoomData(snap.val()));
-    return () => unsubscribe();
+    
+    return () => {
+      unsubscribe();
+      // 🔥 3. 컴포넌트가 정상적으로 닫힐 때(수동 종료 등)는 폭파 예약 취소
+      onDisconnect(roomRef).cancel();
+    };
   }, [roomCode]);
 
   useEffect(() => {
