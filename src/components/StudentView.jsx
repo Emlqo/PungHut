@@ -59,7 +59,7 @@ export default function StudentView({ onBack }) {
         <div className="bg-white p-10 rounded-[2rem] shadow-2xl w-full max-w-sm">
           <h2 className="text-4xl font-black text-center mb-10 text-slate-800">게임 입장</h2>
           <input type="text" placeholder="선생님이 알려준 4자리 코드" maxLength="4" className="w-full p-5 border-4 border-slate-200 rounded-2xl mb-4 text-center text-xl font-bold focus:border-indigo-500 outline-none" value={roomCode} onChange={e=>setRoomCode(e.target.value)} />
-          <input type="text" placeholder="내 이름 (예: 홍길동)" className="w-full p-5 border-4 border-slate-200 rounded-2xl mb-10 text-center text-xl font-bold focus:border-indigo-500 outline-none" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&join()} />
+          <input type="text" placeholder="내 이름 (학번+이름)" className="w-full p-5 border-4 border-slate-200 rounded-2xl mb-10 text-center text-xl font-bold focus:border-indigo-500 outline-none" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&join()} />
           <button onClick={join} className="w-full py-6 bg-amber-400 text-amber-900 rounded-2xl font-black text-3xl shadow-[0_8px_0_#d97706] active:translate-y-2 active:shadow-none transition-all">도전!</button>
         </div>
       </div>
@@ -67,6 +67,11 @@ export default function StudentView({ onBack }) {
   }
 
   const currentScore = gameData.players && gameData.players[name] ? gameData.players[name].score : 0;
+  
+  // 💡 [추가된 부분] 현재 진행 중인 문제의 '보기 텍스트 배열'을 가져옵니다.
+  const currentOptions = gameData.quizList && gameData.quizList[gameData.currentIdx] 
+    ? gameData.quizList[gameData.currentIdx].options 
+    : ['', '', '', ''];
 
   return (
     <div className="p-4 min-h-screen flex flex-col bg-slate-100 text-center">
@@ -89,7 +94,12 @@ export default function StudentView({ onBack }) {
             </div>
           ) : (
             ['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'].map((color, i) => (
-              <button key={i} onClick={()=>sendAnswer(i)} className={`flex-1 rounded-[2rem] shadow-[0_10px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all ${color}`}></button>
+              <button key={i} onClick={()=>sendAnswer(i)} className={`flex-1 flex items-center justify-center p-4 rounded-[2rem] shadow-[0_10px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all ${color}`}>
+                {/* 💡 [추가된 부분] 버튼 가운데에 흰색으로 보기 텍스트가 큼지막하게 들어갑니다! */}
+                <span className="text-2xl font-bold text-white break-words drop-shadow-md">
+                  {currentOptions[i]}
+                </span>
+              </button>
             ))
           )}
         </div>
