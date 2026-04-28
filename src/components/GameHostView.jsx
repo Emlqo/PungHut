@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-// 🔥 1. onDisconnect 모듈 추가 수입
 import { ref, onValue, update, remove, onDisconnect } from 'firebase/database';
 
 export default function GameHostView({ roomCode, onBack }) {
@@ -9,15 +8,10 @@ export default function GameHostView({ roomCode, onBack }) {
 
   useEffect(() => {
     const roomRef = ref(db, 'active_sessions/' + roomCode);
-
-    // 🔥 2. 유령방 방지 로직: 선생님 브라우저가 꺼지거나 튕기면 서버에서 방을 자동 폭파시킴!
     onDisconnect(roomRef).remove();
-
     const unsubscribe = onValue(roomRef, snap => setRoomData(snap.val()));
-    
     return () => {
       unsubscribe();
-      // 🔥 3. 컴포넌트가 정상적으로 닫힐 때(수동 종료 등)는 폭파 예약 취소
       onDisconnect(roomRef).cancel();
     };
   }, [roomCode]);
@@ -34,13 +28,8 @@ export default function GameHostView({ roomCode, onBack }) {
 
   if(!roomData) return <div className="p-20 text-center text-2xl font-bold">방 정보를 불러오는 중...</div>;
 
-  const toggleLock = () => {
-    update(ref(db, 'active_sessions/' + roomCode), { isLocked: !roomData.isLocked });
-  };
-
-  const startGame = () => {
-    update(ref(db, 'active_sessions/' + roomCode), { state: 'question', startTime: Date.now(), isLocked: true });
-  };
+  const toggleLock = () => update(ref(db, 'active_sessions/' + roomCode), { isLocked: !roomData.isLocked });
+  const startGame = () => update(ref(db, 'active_sessions/' + roomCode), { state: 'question', startTime: Date.now(), isLocked: true });
 
   const showResult = () => {
     const currentQ = roomData.quizList[roomData.currentIdx];
@@ -60,10 +49,7 @@ export default function GameHostView({ roomCode, onBack }) {
     update(ref(db), updates);
   };
 
-  const showScoreboard = () => {
-    update(ref(db, 'active_sessions/' + roomCode), { state: 'scoreboard' });
-  };
-
+  const showScoreboard = () => update(ref(db, 'active_sessions/' + roomCode), { state: 'scoreboard' });
   const nextQuestion = () => {
     if(roomData.currentIdx + 1 < roomData.quizList.length) {
       setTimeLeft(30);
@@ -74,20 +60,21 @@ export default function GameHostView({ roomCode, onBack }) {
   };
 
   const closeSession = () => {
-    if(window.confirm('게임을 완전히 종료하고 대기실로 돌아가시겠습니까?')) {
+    if(window.confirm('게임을 완전히 종료하시겠습니까?')) {
       remove(ref(db, 'active_sessions/' + roomCode));
       onBack();
     }
   };
 
   const playersList = roomData.players ? Object.keys(roomData.players) : [];
-  const sortedPlayers = roomData.players 
-    ? Object.entries(roomData.players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0))
-    : [];
+  const sortedPlayers = roomData.players ? Object.entries(roomData.players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0)) : [];
   const currentQuiz = roomData.state !== 'waiting' && roomData.state !== 'final' ? roomData.quizList[roomData.currentIdx] : null;
 
+  // 구버전(image)과 신버전(images) 데이터를 모두 배열로 묶어주는 안전 장치
+  const quizImages = currentQuiz ? (currentQuiz.images || (currentQuiz.image ? [currentQuiz.image] : [])) : [];
+
   return (
-    <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-hidden">
+    <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-hidden flex flex-col">
       <button onClick={closeSession} className="absolute top-8 left-8 px-4 py-2 bg-red-500 text-white rounded font-bold shadow-lg z-50">방폭파/종료</button>
       
       {roomData.state === 'waiting' && (
@@ -108,43 +95,47 @@ export default function GameHostView({ roomCode, onBack }) {
       )}
 
       {roomData.state === 'question' && (
-        <div className="max-w-5xl mx-auto mt-10">
-          <div className="flex justify-between items-center mb-8">
+        <div className="max-w-5xl mx-auto mt-4 flex-1 flex flex-col justify-center w-full">
+          <div className="flex justify-between items-center mb-6 shrink-0">
             <span className="text-5xl font-black text-red-500 bg-white px-8 py-4 rounded-full shadow-lg border-4 border-red-100">{timeLeft}s</span>
             <span className="text-3xl font-bold bg-indigo-200 px-6 py-2 rounded-full text-indigo-800">Q {roomData.currentIdx + 1} / {roomData.quizList.length}</span>
           </div>
-          <div className="bg-white p-8 rounded-3xl shadow-xl mb-10">
+          
+          <div className="bg-white p-8 rounded-3xl shadow-xl mb-6 flex-1 flex flex-col justify-center">
             <h2 className="text-5xl font-black mb-6 leading-tight">{currentQuiz.question}</h2>
-            {currentQuiz.image && <img src={currentQuiz.image} className="max-h-72 mx-auto rounded-2xl shadow-md object-contain border-4 border-slate-50" />}
+            
+            {/* 여러 장의 사진을 보여주는 영역 */}
+            {quizImages.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-4 mt-2">
+                {quizImages.map((img, idx) => (
+                  <img key={idx} src={img} className="max-h-60 rounded-2xl shadow-md object-contain border-4 border-slate-50" alt={`문제사진 ${idx+1}`} />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-6 h-48">
+          
+          <div className="grid grid-cols-2 gap-6 h-48 shrink-0">
             {currentQuiz.options.map((opt, i) => (
               <div key={i} className={`flex items-center justify-center text-4xl font-bold text-white rounded-2xl shadow-xl ${['bg-red-500','bg-blue-500','bg-amber-400','bg-emerald-500'][i]}`}>{opt}</div>
             ))}
           </div>
-          {/* 시간 건너뛰기 버튼 확실하게 복구 완료! */}
-          <button onClick={showResult} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition">
+          <button onClick={showResult} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition mx-auto block shrink-0">
             시간 건너뛰기
           </button>
         </div>
       )}
 
+      {/* 정답/순위표/결과 화면 생략 (기존 유지) */}
       {roomData.state === 'result' && (
         <div className="mt-20">
           <h2 className="text-4xl font-bold mb-6 text-slate-500 italic">정답은 과연...?</h2>
-          <div className="text-7xl font-black text-green-600 mb-12 bg-white inline-block px-16 py-8 rounded-3xl shadow-2xl border-b-8 border-green-200">
-            {currentQuiz.options[currentQuiz.answerIndex]}
-          </div>
-          <div>
-            <button onClick={showScoreboard} className="px-12 py-6 bg-indigo-600 text-white rounded-full text-3xl font-bold shadow-xl hover:bg-indigo-700 transition transform hover:scale-105">
-              순위 확인하기 📊
-            </button>
-          </div>
+          <div className="text-7xl font-black text-green-600 mb-12 bg-white inline-block px-16 py-8 rounded-3xl shadow-2xl border-b-8 border-green-200">{currentQuiz.options[currentQuiz.answerIndex]}</div>
+          <div><button onClick={showScoreboard} className="px-12 py-6 bg-indigo-600 text-white rounded-full text-3xl font-bold shadow-xl hover:scale-105 transition transform">순위 확인하기 📊</button></div>
         </div>
       )}
 
       {roomData.state === 'scoreboard' && (
-        <div className="max-w-4xl mx-auto mt-10">
+        <div className="max-w-4xl mx-auto mt-10 w-full">
           <h2 className="text-5xl font-black text-indigo-700 mb-10 title-font">현재 순위 🚩</h2>
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
             {sortedPlayers.slice(0, 5).map(([name, p], i) => (
@@ -164,52 +155,33 @@ export default function GameHostView({ roomCode, onBack }) {
       )}
 
       {roomData.state === 'final' && (
-        <div className="h-screen flex flex-col items-center justify-end pb-20 overflow-hidden">
+        <div className="h-screen flex flex-col items-center justify-end pb-20 overflow-hidden w-full">
           <h2 className="text-7xl title-font text-amber-500 mb-20 drop-shadow-lg animate-bounce">CONGRATULATIONS! 🎉</h2>
-          
           <div className="flex items-end gap-4 w-full max-w-5xl h-[500px]">
             {sortedPlayers[1] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-3xl font-black mb-4 truncate w-full px-2 text-slate-600">{sortedPlayers[1][0]}</div>
-                <div className="w-full bg-slate-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1s_ease-out]" style={{ height: '60%' }}>
-                  <span className="text-7xl font-black text-white opacity-50">2</span>
-                  <span className="mt-4 text-2xl font-bold text-slate-700">{sortedPlayers[1][1].score} pt</span>
-                </div>
+                <div className="w-full bg-slate-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1s_ease-out]" style={{ height: '60%' }}><span className="text-7xl font-black text-white opacity-50">2</span><span className="mt-4 text-2xl font-bold text-slate-700">{sortedPlayers[1][1].score} pt</span></div>
               </div>
             )}
-
             {sortedPlayers[0] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-5xl mb-4 animate-bounce text-amber-400">👑</div>
                 <div className="text-4xl font-black mb-4 truncate w-full px-2 text-indigo-800">{sortedPlayers[0][0]}</div>
-                <div className="w-full bg-amber-400 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 border-x-4 border-t-4 border-amber-200 animate-[slideUp_0.7s_ease-out]" style={{ height: '90%' }}>
-                  <span className="text-9xl font-black text-white opacity-60">1</span>
-                  <span className="mt-4 text-3xl font-black text-amber-900">{sortedPlayers[0][1].score} pt</span>
-                </div>
+                <div className="w-full bg-amber-400 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 border-x-4 border-t-4 border-amber-200 animate-[slideUp_0.7s_ease-out]" style={{ height: '90%' }}><span className="text-9xl font-black text-white opacity-60">1</span><span className="mt-4 text-3xl font-black text-amber-900">{sortedPlayers[0][1].score} pt</span></div>
               </div>
             )}
-
             {sortedPlayers[2] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-3xl font-black mb-4 truncate w-full px-2 text-orange-700">{sortedPlayers[2][0]}</div>
-                <div className="w-full bg-orange-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1.3s_ease-out]" style={{ height: '40%' }}>
-                  <span className="text-7xl font-black text-white opacity-50">3</span>
-                  <span className="mt-4 text-2xl font-bold text-orange-900">{sortedPlayers[2][1].score} pt</span>
-                </div>
+                <div className="w-full bg-orange-300 rounded-t-3xl shadow-2xl flex flex-col items-center pt-8 animate-[slideUp_1.3s_ease-out]" style={{ height: '40%' }}><span className="text-7xl font-black text-white opacity-50">3</span><span className="mt-4 text-2xl font-bold text-orange-900">{sortedPlayers[2][1].score} pt</span></div>
               </div>
             )}
           </div>
-          
           <button onClick={() => window.location.reload()} className="mt-16 text-slate-400 font-bold underline hover:text-slate-600">처음으로 돌아가기</button>
         </div>
       )}
-
-      <style>{`
-        @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-      `}</style>
+      <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
     </div>
   );
 }
