@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 
-export default function AdminAuth({ onLogin }) {
+// 💡 여기 이름을 App.jsx와 똑같이 onSuccess로 맞췄습니다!
+export default function AdminAuth({ onSuccess }) {
   const [pwd, setPwd] = useState('');
 
   const handleLogin = () => {
-    // 비밀번호가 didtnsdl 로 설정되어 있습니다.
     if (pwd === 'didtnsdl') {
-      onLogin();
+      onSuccess(); // 💡 여기도 onSuccess()를 실행하도록 변경!
     } else {
       alert('비밀번호가 틀렸습니다!');
     }
   };
 
-  // 엔터 키를 눌렀을 때 실행되는 함수를 따로 명확하게 분리했습니다.
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       handleLogin();
