@@ -9,15 +9,32 @@ export default function StudentView({ onBack }) {
   const [gameData, setGameData] = useState({ state: 'waiting' });
   const [hasAnswered, setHasAnswered] = useState(false);
 
+// src/components/StudentView.jsx 의 join 함수를 이걸로 교체하세요!
+
   const join = async () => {
     if(!roomCode || !name) return alert('클래스 코드와 닉네임을 모두 입력해주세요!');
     try {
       const snap = await get(ref(db, 'active_sessions/' + roomCode));
       const data = snap.val();
       if(!data) return alert('존재하지 않는 코드입니다!');
-      if(data.isLocked) return alert('입장이 마감되었습니다!');
-      await set(ref(db, 'active_sessions/' + roomCode + '/players/' + name), { score: 0, answer: null });
+      
+      // 🔥 [핵심 수정] 이미 참여했던 이력이 있는 학생인지 확인
+      const isExistingPlayer = data.players && data.players[name];
+
+      // 방이 잠겨있는데, 처음 온 학생이라면 차단! (튕겨서 재접속하는 학생은 자비롭게 통과)
+      if(data.isLocked && !isExistingPlayer) {
+        return alert('입장이 마감되었습니다! 선생님께 문의하세요.');
+      }
+
+      // 새로운 학생일 경우에만 점수를 0점으로 초기화 (기존 학생은 DB 점수 보존)
+      if (!isExistingPlayer) {
+        await update(ref(db, 'active_sessions/' + roomCode + '/players'), { 
+          [name]: { score: 0, answer: null } 
+        });
+      }
+
       setIsJoined(true);
+      
       onValue(ref(db, 'active_sessions/' + roomCode), snap2 => {
         const liveData = snap2.val();
         if(!liveData) { setIsJoined(false); } else { setGameData(liveData); }
