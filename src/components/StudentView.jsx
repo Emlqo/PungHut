@@ -55,31 +55,27 @@ export default function StudentView({ onBack }) {
 
   const currentScore = gameData.players && gameData.players[name] ? gameData.players[name].score : 0;
   const currentQuiz = gameData.quizList && gameData.quizList[gameData.currentIdx] ? gameData.quizList[gameData.currentIdx] : null;
+  const quizImages = currentQuiz ? (currentQuiz.images || (currentQuiz.image ? [currentQuiz.image] : [])) : [];
 
   return (
     <div className="p-4 min-h-screen flex flex-col bg-slate-100 text-center">
-      <div className="bg-white p-4 rounded-2xl shadow-sm mb-4 flex justify-between items-center border-b-4 border-indigo-200">
+      <div className="bg-white p-4 rounded-2xl shadow-sm mb-4 flex justify-between items-center border-b-4 border-indigo-200 shrink-0">
         <span className="font-black text-slate-700">👤 {name}</span>
         <span className="font-black text-amber-500">⭐ {currentScore} pt</span>
       </div>
 
       {gameData.state === 'question' && currentQuiz && (
-        <div className="flex-1 flex flex-col gap-3">
-          <div className="bg-white p-4 rounded-3xl shadow-md flex flex-col items-center border-2 border-slate-100 min-h-[120px] justify-center">
-            <h2 className="text-xl font-black text-slate-800 break-keep">{currentQuiz.question}</h2>
+        <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+          <div className="bg-white p-4 rounded-3xl shadow-md flex flex-col items-center border-2 border-slate-100 shrink-0 max-h-[50%] overflow-y-auto">
+            <h2 className="text-xl font-black text-slate-800 break-keep mb-2">{currentQuiz.question}</h2>
             
-            {/* 📸 [핵심 수정] 이미지 렌더링 부분 강화 */}
-            {currentQuiz.image ? (
-              <div className="mt-3 w-full flex justify-center">
-                <img 
-                  src={currentQuiz.image} 
-                  alt="문제 사진" 
-                  className="max-h-40 w-auto rounded-xl shadow-inner object-contain border border-slate-200"
-                  onError={(e) => { e.target.style.display = 'none'; console.error('Image Load Error'); }}
-                />
+            {/* 📸 여러 장 사진 스크롤 영역 */}
+            {quizImages.length > 0 && (
+              <div className="flex gap-2 w-full overflow-x-auto pb-2 snap-x">
+                {quizImages.map((img, idx) => (
+                  <img key={idx} src={img} className="max-h-32 md:max-h-40 w-auto rounded-xl shadow-sm object-contain border border-slate-200 shrink-0 snap-center" alt={`문제사진 ${idx+1}`} />
+                ))}
               </div>
-            ) : (
-              <div className="mt-2 text-[10px] text-slate-300">첨부된 사진 없음</div>
             )}
           </div>
 
@@ -100,7 +96,6 @@ export default function StudentView({ onBack }) {
         </div>
       )}
 
-      {/* 대기/순위/결과 화면 생략 (기존 로직 유지) */}
       {gameData.state === 'waiting' && <div className="flex-1 flex items-center justify-center font-black text-slate-400 text-2xl">준비하시고...</div>}
       {gameData.state === 'scoreboard' && <div className="flex-1 flex items-center justify-center bg-amber-50 rounded-3xl text-2xl font-black text-amber-700">순위 확인 중! 👀</div>}
       {gameData.state === 'result' && <div className="flex-1 flex items-center justify-center bg-indigo-50 rounded-3xl text-2xl font-black text-indigo-700">과연 정답은?</div>}
