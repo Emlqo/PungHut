@@ -4,11 +4,18 @@ export default function AdminAuth({ onLogin }) {
   const [pwd, setPwd] = useState('');
 
   const handleLogin = () => {
-  
+    // 비밀번호가 didtnsdl 로 설정되어 있습니다.
     if (pwd === 'didtnsdl') {
       onLogin();
     } else {
       alert('비밀번호가 틀렸습니다!');
+    }
+  };
+
+  // 엔터 키를 눌렀을 때 실행되는 함수를 따로 명확하게 분리했습니다.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
     }
   };
 
@@ -22,7 +29,7 @@ export default function AdminAuth({ onLogin }) {
           className="w-full p-4 border-2 border-slate-200 rounded-xl mb-4 text-center text-xl font-bold focus:border-indigo-500 outline-none"
           value={pwd}
           onChange={e => setPwd(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
+          onKeyDown={handleKeyDown} 
         />
         <button 
           onClick={handleLogin}
