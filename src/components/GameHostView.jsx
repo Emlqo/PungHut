@@ -31,7 +31,6 @@ export default function GameHostView({ roomCode, onBack }) {
   const toggleLock = () => update(ref(db, 'active_sessions/' + roomCode), { isLocked: !roomData.isLocked });
   const startGame = () => update(ref(db, 'active_sessions/' + roomCode), { state: 'question', startTime: Date.now(), isLocked: true });
 
-  // 🔥 [핵심 수정] 캐시 안 지워진 학생도 무조건 점수가 오르는 하이브리드 계산기!
   const showResult = () => {
     const currentQ = roomData.quizList[roomData.currentIdx];
     const updates = {};
@@ -40,27 +39,19 @@ export default function GameHostView({ roomCode, onBack }) {
     if(roomData.players) {
       Object.entries(roomData.players).forEach(([name, p]) => {
         if (p.answer === currentQ.answerIndex) {
-          let timeTakenSec = 15; // 기본값 (네트워크 지연 시 중간 점수 부여)
-
-          // 1. 완벽하게 업데이트된 최신 학생 폰 (timeTakenMs)
+          let timeTakenSec = 15; 
           if (p.timeTakenMs !== undefined) {
             timeTakenSec = p.timeTakenMs / 1000;
-          } 
-          // 2. 끈질긴 캐시 때문에 옛날 데이터를 보내는 학생 폰 (answerTime)
-          else if (p.answerTime && p.questionStartTime) {
+          } else if (p.answerTime && p.questionStartTime) {
             timeTakenSec = (p.answerTime - p.questionStartTime) / 1000;
           }
 
           let scoreAdd = Math.round((1 - timeTakenSec / 30) * 1000);
-          
-          // 철통 방어 가드레일 (기기 간 시간차로 인해 점수가 미쳐 날뛰어도 무조건 0~1000점 고정!)
           if (scoreAdd < 0) scoreAdd = 0;
           if (scoreAdd > 1000) scoreAdd = 1000;
 
           updates['active_sessions/' + roomCode + '/players/' + name + '/score'] = (p.score || 0) + scoreAdd;
         }
-        
-        // 다음 문제를 위해 데이터 초기화
         updates['active_sessions/' + roomCode + '/players/' + name + '/answer'] = null;
         updates['active_sessions/' + roomCode + '/players/' + name + '/timeTakenMs'] = null;
         updates['active_sessions/' + roomCode + '/players/' + name + '/answerTime'] = null; 
@@ -92,7 +83,8 @@ export default function GameHostView({ roomCode, onBack }) {
   const quizImages = currentQuiz ? (currentQuiz.images || (currentQuiz.image ? [currentQuiz.image] : [])) : [];
 
   return (
-    <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-hidden flex flex-col">
+    // 🔥 [수정 포인트] 학생 30명의 리스트를 스크롤해서 볼 수 있도록 overflow-hidden을 overflow-y-auto로 변경했습니다.
+    <div className="p-8 text-center min-h-screen bg-slate-100 relative overflow-y-auto overflow-x-hidden flex flex-col">
       <button onClick={closeSession} className="absolute top-8 left-8 px-4 py-2 bg-red-500 text-white rounded font-bold shadow-lg z-50">방폭파/종료</button>
       
       {roomData.state === 'waiting' && (
@@ -170,9 +162,11 @@ export default function GameHostView({ roomCode, onBack }) {
       )}
 
       {roomData.state === 'final' && (
-        <div className="h-screen flex flex-col items-center justify-end pb-20 overflow-hidden w-full">
-          <h2 className="text-7xl title-font text-amber-500 mb-20 drop-shadow-lg animate-bounce">CONGRATULATIONS! 🎉</h2>
-          <div className="flex items-end gap-4 w-full max-w-5xl h-[500px]">
+        <div className="flex flex-col items-center pt-16 pb-20 w-full">
+          <h2 className="text-7xl title-font text-amber-500 mb-16 drop-shadow-lg animate-bounce">CONGRATULATIONS! 🎉</h2>
+          
+          {/* 1,2,3등 포디움 영역 */}
+          <div className="flex items-end gap-4 w-full max-w-5xl h-[400px] shrink-0 mb-20">
             {sortedPlayers[1] && (
               <div className="flex-1 flex flex-col items-center">
                 <div className="text-3xl font-black mb-4 truncate w-full px-2 text-slate-600">{sortedPlayers[1][0]}</div>
@@ -193,7 +187,29 @@ export default function GameHostView({ roomCode, onBack }) {
               </div>
             )}
           </div>
-          <button onClick={() => window.location.reload()} className="mt-16 text-slate-400 font-bold underline hover:text-slate-600">처음으로 돌아가기</button>
+
+          {/* 🔥 참여한 모든 학생의 전체 순위표 */}
+          <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden mb-12">
+            <div className="bg-indigo-600 py-6">
+              <h3 className="text-4xl font-black text-white title-font">전체 순위표 📜</h3>
+            </div>
+            <div className="flex flex-col">
+              {sortedPlayers.map(([name, p], i) => (
+                <div key={name} className={`flex justify-between items-center p-6 border-b-2 border-slate-100 last:border-0 hover:bg-slate-50 transition ${i === 0 ? 'bg-amber-50' : i === 1 ? 'bg-slate-50' : i === 2 ? 'bg-orange-50' : ''}`}>
+                  <div className="flex items-center gap-6">
+                    <span className={`w-12 text-center text-3xl font-black ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-400' : 'text-slate-300'}`}>{i + 1}</span>
+                    <span className="text-2xl font-bold text-slate-800">{name}</span>
+                  </div>
+                  <span className={`text-3xl font-black ${i < 3 ? 'text-indigo-600' : 'text-slate-500'}`}>{p.score || 0} pt</span>
+                </div>
+              ))}
+              {sortedPlayers.length === 0 && (
+                <div className="p-8 text-2xl font-bold text-slate-400">참여자가 없습니다.</div>
+              )}
+            </div>
+          </div>
+          
+          <button onClick={() => window.location.reload()} className="mt-8 px-10 py-5 bg-slate-800 text-white font-bold rounded-2xl text-2xl shadow-xl hover:scale-105 transition">처음으로 돌아가기</button>
         </div>
       )}
       <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
