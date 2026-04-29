@@ -31,6 +31,7 @@ export default function GameHostView({ roomCode, onBack }) {
   const toggleLock = () => update(ref(db, 'active_sessions/' + roomCode), { isLocked: !roomData.isLocked });
   const startGame = () => update(ref(db, 'active_sessions/' + roomCode), { state: 'question', startTime: Date.now(), isLocked: true });
 
+  // 🔥 [핵심 수정] 캐시 안 지워진 학생도 무조건 점수가 오르는 하이브리드 계산기!
   const showResult = () => {
     const currentQ = roomData.quizList[roomData.currentIdx];
     const updates = {};
@@ -38,19 +39,31 @@ export default function GameHostView({ roomCode, onBack }) {
     
     if(roomData.players) {
       Object.entries(roomData.players).forEach(([name, p]) => {
-        // 🔥 학생 폰에서 계산해 보내온 timeTakenMs 를 바로 사용합니다.
-        if (p.answer === currentQ.answerIndex && p.timeTakenMs !== undefined) {
-          const timeTakenSec = p.timeTakenMs / 1000;
-          
-          // 🔥 가드레일: 계산된 점수가 0점보다 낮아지거나 1000점보다 높지 않도록 강제 고정
+        if (p.answer === currentQ.answerIndex) {
+          let timeTakenSec = 15; // 기본값 (네트워크 지연 시 중간 점수 부여)
+
+          // 1. 완벽하게 업데이트된 최신 학생 폰 (timeTakenMs)
+          if (p.timeTakenMs !== undefined) {
+            timeTakenSec = p.timeTakenMs / 1000;
+          } 
+          // 2. 끈질긴 캐시 때문에 옛날 데이터를 보내는 학생 폰 (answerTime)
+          else if (p.answerTime && p.questionStartTime) {
+            timeTakenSec = (p.answerTime - p.questionStartTime) / 1000;
+          }
+
           let scoreAdd = Math.round((1 - timeTakenSec / 30) * 1000);
+          
+          // 철통 방어 가드레일 (기기 간 시간차로 인해 점수가 미쳐 날뛰어도 무조건 0~1000점 고정!)
           if (scoreAdd < 0) scoreAdd = 0;
           if (scoreAdd > 1000) scoreAdd = 1000;
 
           updates['active_sessions/' + roomCode + '/players/' + name + '/score'] = (p.score || 0) + scoreAdd;
         }
+        
+        // 다음 문제를 위해 데이터 초기화
         updates['active_sessions/' + roomCode + '/players/' + name + '/answer'] = null;
-        updates['active_sessions/' + roomCode + '/players/' + name + '/timeTakenMs'] = null; // 다음 문제를 위해 초기화
+        updates['active_sessions/' + roomCode + '/players/' + name + '/timeTakenMs'] = null;
+        updates['active_sessions/' + roomCode + '/players/' + name + '/answerTime'] = null; 
       });
     }
     update(ref(db), updates);
@@ -76,7 +89,6 @@ export default function GameHostView({ roomCode, onBack }) {
   const playersList = roomData.players ? Object.keys(roomData.players) : [];
   const sortedPlayers = roomData.players ? Object.entries(roomData.players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0)) : [];
   const currentQuiz = roomData.state !== 'waiting' && roomData.state !== 'final' ? roomData.quizList[roomData.currentIdx] : null;
-
   const quizImages = currentQuiz ? (currentQuiz.images || (currentQuiz.image ? [currentQuiz.image] : [])) : [];
 
   return (
