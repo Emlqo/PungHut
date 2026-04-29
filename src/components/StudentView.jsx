@@ -8,8 +8,9 @@ export default function StudentView({ onBack }) {
   const [isJoined, setIsJoined] = useState(false);
   const [gameData, setGameData] = useState({ state: 'waiting' });
   const [hasAnswered, setHasAnswered] = useState(false);
-
-// src/components/StudentView.jsx 의 join 함수를 이걸로 교체하세요!
+  
+  // 🔥 [추가] 학생 스마트폰 자체 스톱워치용 시작 시간
+  const [localStartTime, setLocalStartTime] = useState(0); 
 
   const join = async () => {
     if(!roomCode || !name) return alert('클래스 코드와 닉네임을 모두 입력해주세요!');
@@ -18,15 +19,9 @@ export default function StudentView({ onBack }) {
       const data = snap.val();
       if(!data) return alert('존재하지 않는 코드입니다!');
       
-      // 🔥 [핵심 수정] 이미 참여했던 이력이 있는 학생인지 확인
       const isExistingPlayer = data.players && data.players[name];
+      if(data.isLocked && !isExistingPlayer) return alert('입장이 마감되었습니다!');
 
-      // 방이 잠겨있는데, 처음 온 학생이라면 차단! (튕겨서 재접속하는 학생은 자비롭게 통과)
-      if(data.isLocked && !isExistingPlayer) {
-        return alert('입장이 마감되었습니다! 선생님께 문의하세요.');
-      }
-
-      // 새로운 학생일 경우에만 점수를 0점으로 초기화 (기존 학생은 DB 점수 보존)
       if (!isExistingPlayer) {
         await update(ref(db, 'active_sessions/' + roomCode + '/players'), { 
           [name]: { score: 0, answer: null } 
@@ -34,7 +29,6 @@ export default function StudentView({ onBack }) {
       }
 
       setIsJoined(true);
-      
       onValue(ref(db, 'active_sessions/' + roomCode), snap2 => {
         const liveData = snap2.val();
         if(!liveData) { setIsJoined(false); } else { setGameData(liveData); }
@@ -45,15 +39,21 @@ export default function StudentView({ onBack }) {
   const sendAnswer = (idx) => {
     if(hasAnswered) return;
     setHasAnswered(true);
+    
+    // 🔥 선생님 시계와 비교하지 않고, 학생 기기에서 순수하게 걸린 시간만 계산!
+    const timeTakenMs = Date.now() - localStartTime; 
+    
     update(ref(db, 'active_sessions/' + roomCode + '/players/' + name), {
       answer: idx,
-      answerTime: Date.now(),
-      questionStartTime: gameData.startTime
+      timeTakenMs: timeTakenMs // 걸린 시간을 직접 전송
     });
   };
 
   useEffect(() => {
-    if(gameData.state === 'question') setHasAnswered(false);
+    if(gameData.state === 'question') {
+      setHasAnswered(false);
+      setLocalStartTime(Date.now()); // 🔥 문제가 학생 화면에 뜬 순간 스톱워치 시작!
+    }
   }, [gameData.state, gameData.currentIdx]);
 
   if(!isJoined) {
@@ -85,8 +85,6 @@ export default function StudentView({ onBack }) {
         <div className="flex-1 flex flex-col gap-3 overflow-hidden">
           <div className="bg-white p-4 rounded-3xl shadow-md flex flex-col items-center border-2 border-slate-100 shrink-0 max-h-[50%] overflow-y-auto">
             <h2 className="text-xl font-black text-slate-800 break-keep mb-2">{currentQuiz.question}</h2>
-            
-            {/* 📸 여러 장 사진 스크롤 영역 */}
             {quizImages.length > 0 && (
               <div className="flex gap-2 w-full overflow-x-auto pb-2 snap-x">
                 {quizImages.map((img, idx) => (
