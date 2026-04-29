@@ -38,12 +38,19 @@ export default function GameHostView({ roomCode, onBack }) {
     
     if(roomData.players) {
       Object.entries(roomData.players).forEach(([name, p]) => {
-        if (p.answer === currentQ.answerIndex && p.answerTime) {
-          const timeTaken = (p.answerTime - p.questionStartTime) / 1000;
-          const scoreAdd = Math.max(0, Math.round((1 - timeTaken / 30) * 1000));
+        // 🔥 학생 폰에서 계산해 보내온 timeTakenMs 를 바로 사용합니다.
+        if (p.answer === currentQ.answerIndex && p.timeTakenMs !== undefined) {
+          const timeTakenSec = p.timeTakenMs / 1000;
+          
+          // 🔥 가드레일: 계산된 점수가 0점보다 낮아지거나 1000점보다 높지 않도록 강제 고정
+          let scoreAdd = Math.round((1 - timeTakenSec / 30) * 1000);
+          if (scoreAdd < 0) scoreAdd = 0;
+          if (scoreAdd > 1000) scoreAdd = 1000;
+
           updates['active_sessions/' + roomCode + '/players/' + name + '/score'] = (p.score || 0) + scoreAdd;
         }
         updates['active_sessions/' + roomCode + '/players/' + name + '/answer'] = null;
+        updates['active_sessions/' + roomCode + '/players/' + name + '/timeTakenMs'] = null; // 다음 문제를 위해 초기화
       });
     }
     update(ref(db), updates);
@@ -70,7 +77,6 @@ export default function GameHostView({ roomCode, onBack }) {
   const sortedPlayers = roomData.players ? Object.entries(roomData.players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0)) : [];
   const currentQuiz = roomData.state !== 'waiting' && roomData.state !== 'final' ? roomData.quizList[roomData.currentIdx] : null;
 
-  // 구버전(image)과 신버전(images) 데이터를 모두 배열로 묶어주는 안전 장치
   const quizImages = currentQuiz ? (currentQuiz.images || (currentQuiz.image ? [currentQuiz.image] : [])) : [];
 
   return (
@@ -103,8 +109,6 @@ export default function GameHostView({ roomCode, onBack }) {
           
           <div className="bg-white p-8 rounded-3xl shadow-xl mb-6 flex-1 flex flex-col justify-center">
             <h2 className="text-5xl font-black mb-6 leading-tight">{currentQuiz.question}</h2>
-            
-            {/* 여러 장의 사진을 보여주는 영역 */}
             {quizImages.length > 0 && (
               <div className="flex flex-wrap justify-center gap-4 mt-2">
                 {quizImages.map((img, idx) => (
@@ -125,7 +129,6 @@ export default function GameHostView({ roomCode, onBack }) {
         </div>
       )}
 
-      {/* 정답/순위표/결과 화면 생략 (기존 유지) */}
       {roomData.state === 'result' && (
         <div className="mt-20">
           <h2 className="text-4xl font-bold mb-6 text-slate-500 italic">정답은 과연...?</h2>
